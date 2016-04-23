@@ -28,7 +28,16 @@ sprite_human = pygame.Rect(0, 9 * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE)
 size = width, height = SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE
 screen = pygame.display.set_mode(size)
 tileset = pygame.image.load("assets/tileset.png")
+tileset_unlit = tileset.copy()
+light_intensity  = 128
+tileset_unlit.fill((light_intensity, light_intensity, light_intensity), None, pygame.BLEND_MULT)
 human_img = pygame.image.load("assets/human.png")
+
+# FOV constants
+FOV_ALGO = 0  # default FOV algorithm
+FOV_LIGHT_WALLS = True
+LIGHT_RADIUS = 10
+
 
 # MAP
 
@@ -60,6 +69,7 @@ class Tile:
         if block_sight is None:
             block_sight = blocked
         self.block_sight = block_sight
+        self.explored = False
 
 
 def create_room(room):
@@ -175,7 +185,6 @@ class Object:
 # RENDERER
 
 class Camera:
-
     def __init__(self, followee):
         self.followee = followee
         self.x = 0
@@ -189,18 +198,35 @@ class Camera:
 
 
 def render_all(cam):
-    global color_light_wall
-    global color_light_ground
-
+    screen.fill((0,0,0))
+    global fov_recompute
+    
+    if fov_recompute:
+        # recompute FOV if needed (the player moved or something)
+        fov_recompute = False
+        libtcod.map_compute_fov(fov_map, player.x, player.y, LIGHT_RADIUS,
+                                FOV_LIGHT_WALLS, FOV_ALGO)
+        
     for x in range(max(0, cam.x), min(cam.x + SCREEN_WIDTH, MAP_WIDTH)):
         for y in range(max(0, cam.y), min(cam.y + SCREEN_HEIGHT, MAP_HEIGHT)):
+            visible = libtcod.map_is_in_fov(fov_map, x, y)
             wall = map[x][y].block_sight
-            if wall:
-                screen.blit(tileset, ((x - cam.x) * TILE_SIZE,
-                                      (y - cam.y) * TILE_SIZE), tile_wall)
-            else:
-                screen.blit(tileset, ((x - cam.x) * TILE_SIZE,
-                                      (y - cam.y) * TILE_SIZE), tile_floor)
+            if visible:
+                if wall:
+                    screen.blit(tileset, ((x - cam.x) * TILE_SIZE,
+                                          (y - cam.y) * TILE_SIZE), tile_wall)
+                else:
+                    screen.blit(tileset, ((x - cam.x) * TILE_SIZE,
+                                          (y - cam.y) * TILE_SIZE), tile_floor)
+                map[x][y].explored = True
+            elif map[x][y].explored:
+                if wall:
+                    screen.blit(tileset_unlit, ((x - cam.x) * TILE_SIZE,
+                                          (y - cam.y) * TILE_SIZE), tile_wall)
+                else:
+                    screen.blit(tileset_unlit, ((x - cam.x) * TILE_SIZE,
+                                          (y - cam.y) * TILE_SIZE), tile_floor)
+
 
     # draw all objects in the list
     for object in objects:
@@ -213,7 +239,11 @@ def render_all(cam):
 
 # INPUT
 
+fov_recompute = True
+
 def handle_keys():
+    global fov_recompute
+    
     # key = libtcod.console_check_for_keypress()  # real-time
     key = libtcod.console_wait_for_keypress(True)  # turn-based
 
@@ -226,13 +256,17 @@ def handle_keys():
     # movement keys
     if libtcod.console_is_key_pressed(libtcod.KEY_UP):
         player.move(0, -1)
+        fov_recompute = True
     elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
         player.move(0, 1)
+        fov_recompute = True
     elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
         player.move(-1, 0)
+        fov_recompute = True
         player.flip = False
     elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
         player.move(1, 0)
+        fov_recompute = True
         player.flip = True
 
 
@@ -240,11 +274,6 @@ def handle_keys():
 
 # create object representing the player
 player = Object(0, 0, human_img, sprite_human)
-player.x = 25
-player.y = 23
-
-# create an NPC
-# npc = Object(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', libtcod.yellow)
 
 # the list of objects with those two
 objects = [player]
@@ -252,7 +281,12 @@ objects = [player]
 # generate map (at this point it's not drawn to the screen)
 make_map()
 
-black = 0, 0, 0
+# FOV
+fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+for y in range(MAP_HEIGHT):
+    for x in range(MAP_WIDTH):
+        libtcod.map_set_properties(fov_map, x, y,
+                                   not map[x][y].block_sight, not map[x][y].blocked)
 
 camera = Camera(player)
 while not libtcod.console_is_window_closed():
