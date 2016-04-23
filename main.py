@@ -1,5 +1,8 @@
+import os
 import libtcodpy as libtcod
 import pygame
+
+os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
 
 # actual size of the window in cells
 SCREEN_WIDTH = 40
@@ -26,14 +29,16 @@ sprite_human = pygame.Rect(0, 9 * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE)
 
 # actual size of the window in pixels
 size = width, height = SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE
+pygame.init()
 screen = pygame.display.set_mode(size)
 
 clock = pygame.time.Clock()
 wait = 0
 
 # graphics
-tileset = pygame.image.load("assets/tileset.png")
-tileset_unlit = tileset.copy()
+BLACK = (0,0,0)
+tileset_lit = pygame.image.load("assets/tileset.png")
+tileset_unlit = tileset_lit.copy()
 light_intensity  = 128
 tileset_unlit.fill((light_intensity, light_intensity, light_intensity), None, pygame.BLEND_MULT)
 human_img = pygame.image.load("assets/human.png")
@@ -200,8 +205,8 @@ class Camera:
         self.y = max(0, min(self.y, MAP_HEIGHT - SCREEN_HEIGHT))
 
 
-def render_all(cam):
-    screen.fill((0,0,0))
+def render(cam):
+    screen.fill(BLACK)
     global fov_recompute
     
     if fov_recompute:
@@ -212,24 +217,17 @@ def render_all(cam):
         
     for x in range(max(0, cam.x), min(cam.x + SCREEN_WIDTH, MAP_WIDTH)):
         for y in range(max(0, cam.y), min(cam.y + SCREEN_HEIGHT, MAP_HEIGHT)):
-            visible = libtcod.map_is_in_fov(fov_map, x, y)
-            wall = map[x][y].block_sight
-            if visible:
-                if wall:
-                    screen.blit(tileset, ((x - cam.x) * TILE_SIZE,
-                                          (y - cam.y) * TILE_SIZE), tile_wall)
-                else:
-                    screen.blit(tileset, ((x - cam.x) * TILE_SIZE,
-                                          (y - cam.y) * TILE_SIZE), tile_floor)
+            if libtcod.map_is_in_fov(fov_map, x, y):
+                img = tileset_lit
                 map[x][y].explored = True
             elif map[x][y].explored:
-                if wall:
-                    screen.blit(tileset_unlit, ((x - cam.x) * TILE_SIZE,
-                                          (y - cam.y) * TILE_SIZE), tile_wall)
-                else:
-                    screen.blit(tileset_unlit, ((x - cam.x) * TILE_SIZE,
-                                          (y - cam.y) * TILE_SIZE), tile_floor)
-
+                img  = tileset_unlit
+            else: continue
+            if map[x][y].block_sight:
+                rect = tile_wall
+            else:
+                rect = tile_floor
+            screen.blit(img, ((x - cam.x) * TILE_SIZE, (y - cam.y) * TILE_SIZE), rect)
 
     # draw all objects in the list
     for object in objects:
@@ -238,7 +236,6 @@ def render_all(cam):
                           (object.y - cam.y) * TILE_SIZE), object.rect)
 
     pygame.display.flip()
-
 
 # INPUT
 
@@ -287,6 +284,8 @@ def handle_keys():
     elif player.is_moving and wait <= 0:
         wait = 100
 
+    wait -= clock.tick()
+
 
 # INITIALIZATION & MAIN LOOP
 
@@ -309,19 +308,15 @@ for y in range(MAP_HEIGHT):
                                    not map[x][y].block_sight, not map[x][y].blocked)
 
 camera = Camera(player)
-while not libtcod.console_is_window_closed():
+
+exit = False
+while not exit:
     # handle keys and exit game if needed
     exit = handle_keys()
     if exit:
+        pygame.quit()
         break
 
     # render the screen
     camera.update()
-    render_all(camera)
-
-    # will block execution until 1/60 seconds have passed
-    # since the previous time clock.tick was called.
-    # clock.tick(60)
-    
-    wait -= clock.tick()
-    if wait <= 0: wait = 0
+    render(camera)    
