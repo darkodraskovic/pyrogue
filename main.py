@@ -27,6 +27,11 @@ sprite_human = pygame.Rect(0, 9 * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE)
 # actual size of the window in pixels
 size = width, height = SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE
 screen = pygame.display.set_mode(size)
+
+clock = pygame.time.Clock()
+wait = 0
+
+# graphics
 tileset = pygame.image.load("assets/tileset.png")
 tileset_unlit = tileset.copy()
 light_intensity  = 128
@@ -38,9 +43,7 @@ FOV_ALGO = 0  # default FOV algorithm
 FOV_LIGHT_WALLS = True
 LIGHT_RADIUS = 10
 
-
 # MAP
-
 
 class Rect:
 
@@ -243,37 +246,54 @@ fov_recompute = True
 
 def handle_keys():
     global fov_recompute
+    global wait
     
-    # key = libtcod.console_check_for_keypress()  # real-time
-    key = libtcod.console_wait_for_keypress(True)  # turn-based
-
-    if key.vk == libtcod.KEY_ENTER and key.lalt:
-        # Alt+Enter: toggle fullscreen
-        libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
-    elif key.vk == libtcod.KEY_ESCAPE:
-        return True  # exit game
+    for event in pygame.event.get():
+        
+        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+            return True
+        
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP or event.key == pygame.K_DOWN or \
+               event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
+                player.has_moved = True
+                player.is_moving = True
 
     # movement keys
-    if libtcod.console_is_key_pressed(libtcod.KEY_UP):
-        player.move(0, -1)
-        fov_recompute = True
-    elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-        player.move(0, 1)
-        fov_recompute = True
-    elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-        player.move(-1, 0)
-        fov_recompute = True
-        player.flip = False
-    elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-        player.move(1, 0)
-        fov_recompute = True
-        player.flip = True
+    keys = pygame.key.get_pressed()
+    if wait <= 0 and player.is_moving:
+        if keys[pygame.K_UP]:
+            player.move(0, -1)
+            fov_recompute = True
+        elif keys[pygame.K_DOWN]:
+            player.move(0, 1)
+            fov_recompute = True
+        elif keys[pygame.K_LEFT]:
+            player.move(-1, 0)
+            fov_recompute = True
+            player.flip = False
+        elif keys[pygame.K_RIGHT]:
+            player.move(1, 0)
+            fov_recompute = True
+            player.flip = True
+    elif not keys[pygame.K_UP] and not keys[pygame.K_DOWN] and \
+         not keys[pygame.K_LEFT] and not keys[pygame.K_RIGHT]:
+        player.is_moving = False
+        wait = 0
+
+    if player.has_moved:
+        wait = 250
+        player.has_moved = False
+    elif player.is_moving and wait <= 0:
+        wait = 100
 
 
 # INITIALIZATION & MAIN LOOP
 
 # create object representing the player
 player = Object(0, 0, human_img, sprite_human)
+player.has_moved = False
+player.is_moving = False
 
 # the list of objects with those two
 objects = [player]
@@ -290,11 +310,18 @@ for y in range(MAP_HEIGHT):
 
 camera = Camera(player)
 while not libtcod.console_is_window_closed():
-    # render the screen
-    camera.update()
-    render_all(camera)
-
     # handle keys and exit game if needed
     exit = handle_keys()
     if exit:
         break
+
+    # render the screen
+    camera.update()
+    render_all(camera)
+
+    # will block execution until 1/60 seconds have passed
+    # since the previous time clock.tick was called.
+    # clock.tick(60)
+    
+    wait -= clock.tick()
+    if wait <= 0: wait = 0
