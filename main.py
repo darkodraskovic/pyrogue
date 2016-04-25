@@ -26,7 +26,7 @@ tile_wall = pygame.Rect(6 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 tile_floor = pygame.Rect(0 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
 SPRITE_SIZE = 24
-sprite_human = pygame.Rect(0, 9 * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE)
+sprite_human = pygame.Rect(5 * SPRITE_SIZE, 9 * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE)
 
 # actual size of the window in pixels
 size = width, height = SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE
@@ -54,11 +54,13 @@ def load_images(manifest):
     return images
 
 images = load_images(manifest)
+# tiles
 tileset_lit = images['world']
 tileset_unlit = tileset_lit.copy()
 light_intensity  = 128
 tileset_unlit.fill((light_intensity, light_intensity, light_intensity), None, pygame.BLEND_MULT)
-human_img = images['creatures']
+# entities
+img_animes = images['creatures']
 
 # FOV constants
 FOV_ALGO = 0  # default FOV algorithm
@@ -71,16 +73,19 @@ class Object:
     # this is a generic object: the player, a monster, an item, the stairs...
     # it's always represented by a character on screen.
 
-    def __init__(self, x, y, image, rect):
+    def __init__(self, x, y, name, image, rect, blocks=False):
         self.x = x
         self.y = y
+        self.name = name
+        self.blocks = blocks
         self.image = image
         self.rect = rect
         self.flip = False
 
-    def move(self, dx, dy):
+    def move(self, map, dx, dy):
         # move by the given amount, if the destination is not blocked
-        if not map[self.x + dx][self.y + dy].blocked:
+        # if not map[self.x + dx][self.y + dy].blocked:
+        if not rl.map.is_blocked(map, self.x+dx, self.y+dy):
             self.x += dx
             self.y += dy
 
@@ -106,39 +111,44 @@ class Renderer():
     def __init__(self, camera):
         self.camera = camera
 
-    def render_map(self, map):
+    def render_tiles(self, map):
         cam = self.camera
-        map_width = len(map); map_height = len(map[0])
+        data = map['data']
+        fov_map = map['fov_map']
+        map_width = len(data); map_height = len(data[0])
         for x in range(max(0, cam.x), min(cam.x + SCREEN_WIDTH, map_width)):
             for y in range(max(0, cam.y), min(cam.y + SCREEN_HEIGHT, map_height)):
                 if libtcod.map_is_in_fov(fov_map, x, y):
                     img = tileset_lit
-                    map[x][y].explored = True
-                elif map[x][y].explored:
+                    data[x][y].explored = True
+                elif data[x][y].explored:
                     img  = tileset_unlit
                 else: continue
-                if map[x][y].block_sight:
+                if data[x][y].block_sight:
                     rect = tile_wall
                 else:
                     rect = tile_floor
                 screen.blit(img, ((x - cam.x) * TILE_SIZE, (y - cam.y) * TILE_SIZE), rect)
 
-    def render_objects(self, objects):
+    def render_objects(self, map):
         cam = self.camera
+        objects = map['objects']
+        fov_map = map['fov_map']        
         for object in objects:
-            img = pygame.transform.flip(object.image, object.flip, False)
-            screen.blit(img, ((object.x - cam.x) * TILE_SIZE,
-                              (object.y - cam.y) * TILE_SIZE), object.rect)
+            if libtcod.map_is_in_fov(fov_map, object.x, object.y):
+                img = pygame.transform.flip(object.image, object.flip, False)
+                screen.blit(img, ((object.x - cam.x) * TILE_SIZE,
+                                  (object.y - cam.y) * TILE_SIZE), object.rect)
 
-    def render(self, map, objects):
+    def render(self, map):
         screen.fill(self.BLACK)
-        self.render_map(map)
-        self.render_objects(objects)
+        self.render_tiles(map)
+        self.render_objects(map)
         pygame.display.flip()
 
 # INPUT
 
-def handle_keys():
+def handle_keys(map, player):
     global fov_recompute
     global wait
     
@@ -160,8 +170,8 @@ def handle_keys():
         elif keys[pygame.K_LEFT]: dx = -1; player.flip = False
         elif keys[pygame.K_RIGHT]: dx = 1; player.flip = True
         if dx or dy:
-            player.move(dx, dy)
-            libtcod.map_compute_fov(fov_map, player.x, player.y, LIGHT_RADIUS,
+            player.move(map, dx, dy)
+            libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
                                     FOV_LIGHT_WALLS, FOV_ALGO)
 
     elif not keys[pygame.K_UP] and not keys[pygame.K_DOWN] and \
@@ -180,23 +190,25 @@ def handle_keys():
 
 # INITIALIZATION & MAIN LOOP
 
-# create object representing the player
-player = Object(0, 0, human_img, sprite_human)
+# generate map
+map  = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, \
+                      MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+
+# generate player
+player = Object(0, 0, "player", img_animes, sprite_human)
 player.has_moved = False
 player.is_moving = False
-
-# the list of objects with those two
-objects = [player]
-
-# generate map (at this point it's not drawn to the screen)
-map, fov_map, rooms = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, \
-                      MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-(new_x, new_y) = rooms[0].center()
+(new_x, new_y) = map['rooms'][0].center()
 player.x = new_x
 player.y = new_y
-libtcod.map_compute_fov(fov_map, player.x, player.y, LIGHT_RADIUS,
+map['objects'].append(player)
+libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
                         FOV_LIGHT_WALLS, FOV_ALGO)
 
+# generate objects
+rl.map.place_objects(map, 0, Object, 2, 4, "friend", \
+                     img_animes, \
+                     pygame.Rect(2*SPRITE_SIZE, 15 * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE), True)
 
 camera = Camera(player)
 renderer = Renderer(camera)
@@ -204,11 +216,11 @@ renderer = Renderer(camera)
 exit = False
 while not exit:
     # handle keys and exit game if needed
-    exit = handle_keys()
+    exit = handle_keys(map, player)
     if exit:
         pygame.quit()
         break
 
     # render the screen
     camera.update()
-    renderer.render(map, objects)    
+    renderer.render(map)    

@@ -27,41 +27,41 @@ class Tile:
         self.explored = False
 
 
-def create_room(map, room):
+def create_room(data, room):
     # go through the tiles in the rectangle and make them passable
     # leave some walls at the border of the room
     # Python's range function excludes the last element in the loop
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
-            map[x][y].blocked = False
-            map[x][y].block_sight = False
+            data[x][y].blocked = False
+            data[x][y].block_sight = False
 
 
-def create_h_tunnel(map, x1, x2, y):
+def create_h_tunnel(data, x1, x2, y):
     for x in range(min(x1, x2), max(x1, x2) + 1):
-        map[x][y].blocked = False
-        map[x][y].block_sight = False
+        data[x][y].blocked = False
+        data[x][y].block_sight = False
 
 
-def create_v_tunnel(map, y1, y2, x):
+def create_v_tunnel(data, y1, y2, x):
     # vertical tunnel
     for y in range(min(y1, y2), max(y1, y2) + 1):
-        map[x][y].blocked = False
-        map[x][y].block_sight = False
+        data[x][y].blocked = False
+        data[x][y].block_sight = False
 
-def compute_fov(map):
-    map_width = len(map)
-    map_height = len(map[0])
+def compute_fov(data):
+    map_width = len(data)
+    map_height = len(data[0])
     fov_map = libtcod.map_new(map_width, map_height)
     for y in range(map_height):
         for x in range(map_width):
             libtcod.map_set_properties(fov_map, x, y,
-                                       not map[x][y].block_sight, not map[x][y].blocked)
+                                       not data[x][y].block_sight, not data[x][y].blocked)
     return fov_map
 
 def make_map(map_width, map_height, max_rooms, room_min_size, room_max_size):
     # fill map with "blocked" tiles
-    map = [[Tile(True)
+    data = [[Tile(True)
             for y in range(map_height)]
            for x in range(map_width)]
 
@@ -90,7 +90,7 @@ def make_map(map_width, map_height, max_rooms, room_min_size, room_max_size):
             # this means there are no intersections, so this room is valid
 
             # "paint" it to the map's tiles
-            create_room(map, new_room)
+            create_room(data, new_room)
 
             # center coordinates of new room, will be useful later
             (new_x, new_y) = new_room.center()
@@ -105,15 +105,37 @@ def make_map(map_width, map_height, max_rooms, room_min_size, room_max_size):
                 # draw a coin (random number that is either 0 or 1)
                 if libtcod.random_get_int(0, 0, 1) == 1:
                     # first move horizontally, then vertically
-                    create_h_tunnel(map, prev_x, new_x, prev_y)
-                    create_v_tunnel(map, prev_y, new_y, new_x)
+                    create_h_tunnel(data, prev_x, new_x, prev_y)
+                    create_v_tunnel(data, prev_y, new_y, new_x)
                 else:
                     # first move vertically, then horizontally
-                    create_v_tunnel(map, prev_y, new_y, prev_x)
-                    create_h_tunnel(map, prev_x, new_x, new_y)
+                    create_v_tunnel(data, prev_y, new_y, prev_x)
+                    create_h_tunnel(data, prev_x, new_x, new_y)
 
             # finally, append the new room to the list
             rooms.append(new_room)
             num_rooms += 1
 
-    return (map, compute_fov(map), rooms)
+    return {'data': data, 'fov_map': compute_fov(data), 'rooms': rooms, 'objects': []}
+
+def is_blocked(map, x, y):
+    data = map['data']    
+    if data[x][y].blocked:
+        return True
+
+    for object in map['objects']:
+        if object.blocks and object.x == x and object.y == y:
+            return True
+
+    return False
+
+def place_objects(map, room_index, object_type, min_objects, max_objects, *args):
+    num_objects = libtcod.random_get_int(0, min_objects, max_objects)
+
+    room = map['rooms'][room_index]
+    for i in range(num_objects):
+        x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+        y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
+
+        if not is_blocked(map, x, y):
+            map['objects'].append(object_type(x, y, *args))
