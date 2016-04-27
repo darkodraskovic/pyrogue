@@ -85,6 +85,30 @@ class Object:
             self.x += dx
             self.y += dy
 
+UP = 1
+DOWN = 2
+LEFT = 3
+RIGHT = 4
+EXIT = 5
+
+class Player(Object):
+    def __init__(self, x, y, name, image, blocks=False):
+        Object.__init__(self, x, y, name, image, blocks)
+        self.actions = {UP: False, DOWN: False, LEFT: False, RIGHT: False}
+
+    def handle_actions(self, map):
+        dx = dy = 0
+        actions = self.actions
+        if actions[UP]: dy = -1
+        elif actions[DOWN]: dy = +1
+        elif actions[LEFT]: dx = -1; self.flip = False
+        elif actions[RIGHT]: dx = +1; self.flip = True
+        if dx or dy:
+            self.move(map, dx, dy)
+            libtcod.map_compute_fov(map['fov_map'], self.x, self.y, LIGHT_RADIUS,
+                                    FOV_LIGHT_WALLS, FOV_ALGO)        
+
+
 # CAMERA & RENDERER
 
 class Camera:
@@ -147,11 +171,6 @@ class Renderer:
         pygame.display.flip()
 
 # INPUT
-UP = 1
-DOWN = 2
-LEFT = 3
-RIGHT = 4
-EXIT = 5
 
 kbd.bind_key(pygame.K_UP, UP); kbd.bind_key(pygame.K_w, UP)
 kbd.bind_key(pygame.K_DOWN, DOWN); kbd.bind_key(pygame.K_s, DOWN)
@@ -164,35 +183,31 @@ def handle_keys(map, player):
 
     kbd.handle_keys()
 
-    for event in pygame.event.get():
-        if event.type == kbd.KEYDOWN:
-            if event.action == EXIT:
-                return 'exit'
-            else:
-                Game.player_action = Game.PA_TURN
-                Game.game_state = Game.GS_BUSY
-                wait = 250
-
     if not kbd.is_pressed_any():
         Game.game_state = Game.GS_IDLE
-
-    if Game.player_action == PA_TURN:
-        dx = dy = 0
-        if kbd.is_pressed(UP): dy = -1
-        elif kbd.is_pressed(DOWN): dy = +1
-        elif kbd.is_pressed(LEFT): dx = -1; player.flip = False
-        elif kbd.is_pressed(RIGHT): dx = +1; player.flip = True
-        if dx or dy:
-            player.move(map, dx, dy)
-            libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
-                                    FOV_LIGHT_WALLS, FOV_ALGO)
-        Game.player_action = PA_IDLE
-        Game.turn_count += 1
+    else:
+        for event in pygame.event.get():
+            if event.type == kbd.KEYDOWN:
+                if event.action == EXIT:
+                    return 'exit'
+                else:
+                    player.actions[event.action] = True
+                    Game.player_action = Game.PA_TURN
+                    Game.game_state = Game.GS_BUSY
+                    wait = 250
+            elif event.type == kbd.KEYUP:
+                player.actions[event.action] = False
 
     if Game.game_state == Game.GS_BUSY:
         if wait <= 0:
             Game.player_action = Game.PA_TURN
             wait = 100
+    
+    if Game.player_action == PA_TURN:
+        player.handle_actions(map)
+        Game.player_action = PA_IDLE
+        Game.turn_count += 1
+
 
 class Game:
     GS_IDLE = 0
@@ -207,10 +222,7 @@ class Game:
     @staticmethod
     def update(map, player):
         handle_keys(map, player)
-        
-        if Game.game_state == 'playing' and Game.player_action != 'didnt-take-turn':
-            for object in map['objects']:
-                print 'The ' + object.name + ' says "Hello!"'
+
 
 
 # INITIALIZATION & MAIN LOOP
@@ -220,7 +232,7 @@ map  = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX
 
 # generate player
 img = img_animes.subsurface((0*TILE_SIZE, 9*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-player = Object(0, 0, "player", img, True)
+player = Player(0, 0, "player", img, True)
 (new_x, new_y) = map['rooms'][0].center()
 player.x = new_x
 player.y = new_y
