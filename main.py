@@ -1,7 +1,8 @@
 import os
-from rl import libtcodpy as libtcod
 import rl
+from rl import libtcodpy as libtcod
 from rl import kbd
+from rl import entity
 import pygame
 
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
@@ -65,25 +66,23 @@ FOV_ALGO = 0  # default FOV algorithm
 FOV_LIGHT_WALLS = True
 LIGHT_RADIUS = 10
 
+# COMPONENTS
+
+class Fighter(entity.Component):
+    #combat-related properties and methods (monster, player, NPC).
+    def __init__(self, hp, defense, power):
+        entity.Component.__init__(self, owner, "fighter")
+        self.max_hp = hp
+        self.hp = hp
+        self.defense = defense
+        self.power = power
+
+class BasicMonster(entity.Component):    
+    #AI for a basic monster.
+    def take_turn(self):
+        print 'The ' + self.owner.name + ' says "Hi!"'
+
 # OBJECTS
-
-class Object:
-    # this is a generic object: the player, a monster, an item, the stairs...
-    # it's always represented by a character on screen.
-    def __init__(self, x, y, name, image, blocks=False):
-        self.x = x
-        self.y = y
-        self.name = name
-        self.blocks = blocks
-        self.image = image
-        self.flip = False
-
-    def move(self, map, dx, dy):
-        # move by the given amount, if the destination is not blocked
-        # if not map[self.x + dx][self.y + dy].blocked:
-        if not rl.map.is_blocked(map, self.x+dx, self.y+dy):
-            self.x += dx
-            self.y += dy
 
 UP = 1
 DOWN = 2
@@ -91,11 +90,16 @@ LEFT = 3
 RIGHT = 4
 EXIT = 5
 
-class Player(Object):
+class Player(entity.Object):
     def __init__(self, x, y, name, image, blocks=False):
-        Object.__init__(self, x, y, name, image, blocks)
+        entity.Object.__init__(self, x, y, name, image, blocks)
         self.actions = {UP: False, DOWN: False, LEFT: False, RIGHT: False}
 
+    def move(self, map, dx, dy):
+        if entity.Object.move(self, map, dx, dy):
+            libtcod.map_compute_fov(map['fov_map'], self.x, self.y, LIGHT_RADIUS,
+                                    FOV_LIGHT_WALLS, FOV_ALGO) 
+        
     def handle_actions(self, map):
         dx = dy = 0
         actions = self.actions
@@ -104,11 +108,16 @@ class Player(Object):
         elif actions[LEFT]: dx = -1; self.flip = False
         elif actions[RIGHT]: dx = +1; self.flip = True
         if dx or dy:
-            self.move(map, dx, dy)
-            libtcod.map_compute_fov(map['fov_map'], self.x, self.y, LIGHT_RADIUS,
-                                    FOV_LIGHT_WALLS, FOV_ALGO)        
-
-
+            target = None
+            for object in map['objects']:
+                if object != self and object.x == self.x+dx and object.y == self.y+dy:
+                    target = object
+                    break
+            if target:
+                print 'The ' + target.name + ' laughs at your puny efforts to attack him!'
+            else:
+                self.move(map, dx, dy)
+            
 # CAMERA & RENDERER
 
 class Camera:
@@ -186,7 +195,7 @@ def handle_keys(map, player):
     if not kbd.is_pressed_any():
         Game.game_state = Game.GS_IDLE
     else:
-        for event in pygame.event.get():
+        for event in kbd.get():
             if event.type == kbd.KEYDOWN:
                 if event.action == EXIT:
                     return 'exit'
@@ -242,7 +251,7 @@ libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
 
 # generate objects
 img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-rl.map.place_objects(map, 0, Object, 2, 4, "friend", img, True)
+rl.map.place_objects(map, 0, entity.Object, 2, 4, "friend", img, True)
 
 camera = Camera(player, SCREEN_WIDTH, SCREEN_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
 renderer = Renderer(camera, TILE_SIZE)

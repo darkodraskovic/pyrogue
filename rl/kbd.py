@@ -2,7 +2,8 @@ import pygame
 
 KEYDOWN = pygame.USEREVENT
 KEYUP = pygame.USEREVENT+1
-get_list = [pygame.KEYDOWN, pygame.KEYUP]
+pygame_get_list = [pygame.KEYDOWN, pygame.KEYUP]
+kbd_get_list = [KEYDOWN, KEYUP]
 
 actions = {}
 pressed = {}
@@ -21,7 +22,7 @@ def is_pressed_any():
     return True in pressed.values()
 
 def handle_keys():
-    for event in pygame.event.get(get_list):
+    for event in pygame.event.get(pygame_get_list):
         if event.type == pygame.KEYDOWN:
             if event.key in actions:
                 set_pressed(event.key, True)
@@ -30,3 +31,6 @@ def handle_keys():
             if event.key in actions:
                 set_pressed(event.key, False)
                 pygame.event.post(pygame.event.Event(KEYUP, {'action': actions[event.key]}))
+
+def get():
+    return pygame.event.get(kbd_get_list)
