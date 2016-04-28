@@ -68,19 +68,28 @@ LIGHT_RADIUS = 10
 
 # COMPONENTS
 
-class Fighter(entity.Component):
+class ComponentFighter(entity.Component):
     #combat-related properties and methods (monster, player, NPC).
-    def __init__(self, hp, defense, power):
+    def __init__(self, owner, hp, defense, power):
         entity.Component.__init__(self, owner, "fighter")
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
         self.power = power
 
-class BasicMonster(entity.Component):    
+class ComponentBasicMonster(entity.Component):    
     #AI for a basic monster.
+    def __init__(self, owner, target):
+        entity.Component.__init__(self, owner, "monster")
+        self.target = target
+        
     def take_turn(self):
-        print 'The ' + self.owner.name + ' says "Hi!"'
+        monster = self.owner
+        target = self.target
+        if libtcod.map_is_in_fov(monster.map['fov_map'], monster.x, monster.y):
+            if monster.distance_to(target.x, target.y) >= 2:
+                monster.move_towards(target.x, target.y)
+            
 
 # OBJECTS
 
@@ -94,13 +103,14 @@ class Player(entity.Object):
     def __init__(self, x, y, name, image, blocks=False):
         entity.Object.__init__(self, x, y, name, image, blocks)
         self.actions = {UP: False, DOWN: False, LEFT: False, RIGHT: False}
+        self.add_component(ComponentFighter, 36, 4, 4)
 
-    def move(self, map, dx, dy):
-        if entity.Object.move(self, map, dx, dy):
-            libtcod.map_compute_fov(map['fov_map'], self.x, self.y, LIGHT_RADIUS,
+    def move(self, dx, dy):
+        if entity.Object.move(self, dx, dy):
+            libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y, LIGHT_RADIUS,
                                     FOV_LIGHT_WALLS, FOV_ALGO) 
         
-    def handle_actions(self, map):
+    def update(self):
         dx = dy = 0
         actions = self.actions
         if actions[UP]: dy = -1
@@ -109,15 +119,24 @@ class Player(entity.Object):
         elif actions[RIGHT]: dx = +1; self.flip = True
         if dx or dy:
             target = None
-            for object in map['objects']:
+            for object in self.map['objects']:
                 if object != self and object.x == self.x+dx and object.y == self.y+dy:
                     target = object
                     break
             if target:
                 print 'The ' + target.name + ' laughs at your puny efforts to attack him!'
             else:
-                self.move(map, dx, dy)
-            
+                self.move(dx, dy)
+
+
+class Monster(entity.Object):
+    def __init__(self, x, y, name, image, blocks=False):
+        entity.Object.__init__(self, x, y, name, image, blocks)
+        self.add_component(ComponentBasicMonster, player)
+
+    def update(self):
+        self.components['monster'].take_turn()
+
 # CAMERA & RENDERER
 
 class Camera:
@@ -213,7 +232,8 @@ def handle_keys(map, player):
             wait = 100
     
     if Game.player_action == PA_TURN:
-        player.handle_actions(map)
+        for object in map['objects']:
+            object.update()
         Game.player_action = PA_IDLE
         Game.turn_count += 1
 
@@ -241,17 +261,13 @@ map  = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX
 
 # generate player
 img = img_animes.subsurface((0*TILE_SIZE, 9*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-player = Player(0, 0, "player", img, True)
-(new_x, new_y) = map['rooms'][0].center()
-player.x = new_x
-player.y = new_y
-map['objects'].append(player)
+player = rl.map.place_object(map, 0, Player, "player", img, True)
 libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
                         FOV_LIGHT_WALLS, FOV_ALGO)
 
 # generate objects
 img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-rl.map.place_objects(map, 0, entity.Object, 2, 4, "friend", img, True)
+rl.map.place_objects(map, 0, Monster, 2, 4, "friend", img, True)
 
 camera = Camera(player, SCREEN_WIDTH, SCREEN_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
 renderer = Renderer(camera, TILE_SIZE)

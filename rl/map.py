@@ -129,13 +129,28 @@ def is_blocked(map, x, y):
 
     return False
 
+def place_object(map, room_index, object_type, *args):
+    room = map['rooms'][room_index]
+    x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+    y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
+    if not is_blocked(map, x, y):
+        obj = object_type(x, y, *args)
+        obj.map = map
+        map['objects'].append(obj)
+        return obj
+    
 def place_objects(map, room_index, object_type, min_objects, max_objects, *args):
     num_objects = libtcod.random_get_int(0, min_objects, max_objects)
-
+    
     room = map['rooms'][room_index]
+    objs = []
     for i in range(num_objects):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 
         if not is_blocked(map, x, y):
-            map['objects'].append(object_type(x, y, *args))
+            obj = object_type(x, y, *args)
+            obj.map = map
+            map['objects'].append(obj)
+            objs.append(obj)
+    return objs
