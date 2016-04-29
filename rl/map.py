@@ -26,7 +26,6 @@ class Tile:
         self.block_sight = block_sight
         self.explored = False
 
-
 def create_room(data, room):
     # go through the tiles in the rectangle and make them passable
     # leave some walls at the border of the room

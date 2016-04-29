@@ -1,9 +1,9 @@
 import os
 import rl
 from rl import libtcodpy as libtcod
-from rl import kbd
 from rl import entity
 import pygame
+import game
 
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
 
@@ -28,12 +28,6 @@ tile_floor = pygame.Rect(0 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 size = width, height = SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE
 pygame.init()
 screen = pygame.display.set_mode(size)
-
-
-clock = pygame.time.Clock()
-wait = 0
-PA_IDLE = 0
-PA_TURN = 1
 
 prefix = 'assets/images/'
 manifest = {
@@ -68,16 +62,29 @@ LIGHT_RADIUS = 10
 
 # COMPONENTS
 
-class ComponentFighter(entity.Component):
+class Fighter(entity.Component):
     #combat-related properties and methods (monster, player, NPC).
-    def __init__(self, owner, hp, defense, power):
+    def __init__(self, owner, hp, defense_pow, attack_pow):
         entity.Component.__init__(self, owner, "fighter")
         self.max_hp = hp
         self.hp = hp
-        self.defense = defense
-        self.power = power
+        self.defense_pow = defense_pow
+        self.attack_pow = attack_pow
 
-class ComponentBasicMonster(entity.Component):    
+    def take_damage(self, damage):
+        if damage > 0:
+            self.hp -= damage
+
+    def attack(self, target):
+        damage = self.attack_pow - target.components['fighter'].defense_pow
+
+        attack_str = self.owner.name.capitalize() + ' attacks ' + target.name
+        if damage > 0:
+            print  attack_str + ' for ' + str(damage) + ' hit points.'
+        else:
+            print attack_str + ' but it has no effects.'
+
+class MonsterAI(entity.Component):    
     #AI for a basic monster.
     def __init__(self, owner, target):
         entity.Component.__init__(self, owner, "monster")
@@ -89,21 +96,17 @@ class ComponentBasicMonster(entity.Component):
         if libtcod.map_is_in_fov(monster.map['fov_map'], monster.x, monster.y):
             if monster.distance_to(target.x, target.y) >= 2:
                 monster.move_towards(target.x, target.y)
+            else:
+                self.owner.components['fighter'].attack(target)
             
 
 # OBJECTS
 
-UP = 1
-DOWN = 2
-LEFT = 3
-RIGHT = 4
-EXIT = 5
-
 class Player(entity.Object):
     def __init__(self, x, y, name, image, blocks=False):
         entity.Object.__init__(self, x, y, name, image, blocks)
-        self.actions = {UP: False, DOWN: False, LEFT: False, RIGHT: False}
-        self.add_component(ComponentFighter, 36, 4, 4)
+        self.actions = {game.UP: False, game.DOWN: False, game.LEFT: False, game.RIGHT: False}
+        self.add_component(Fighter, 36, 10, 8)
 
     def move(self, dx, dy):
         if entity.Object.move(self, dx, dy):
@@ -113,10 +116,10 @@ class Player(entity.Object):
     def update(self):
         dx = dy = 0
         actions = self.actions
-        if actions[UP]: dy = -1
-        elif actions[DOWN]: dy = +1
-        elif actions[LEFT]: dx = -1; self.flip = False
-        elif actions[RIGHT]: dx = +1; self.flip = True
+        if actions[game.UP]: dy = -1
+        elif actions[game.DOWN]: dy = +1
+        elif actions[game.LEFT]: dx = -1; self.flip = False
+        elif actions[game.RIGHT]: dx = +1; self.flip = True
         if dx or dy:
             target = None
             for object in self.map['objects']:
@@ -124,15 +127,16 @@ class Player(entity.Object):
                     target = object
                     break
             if target:
-                print 'The ' + target.name + ' laughs at your puny efforts to attack him!'
+                # print 'The ' + target.name + ' laughs at your puny efforts to attack him!'
+                self.components['fighter'].attack(target)
             else:
                 self.move(dx, dy)
-
 
 class Monster(entity.Object):
     def __init__(self, x, y, name, image, blocks=False):
         entity.Object.__init__(self, x, y, name, image, blocks)
-        self.add_component(ComponentBasicMonster, player)
+        self.add_component(Fighter, 8, 6, 12)
+        self.add_component(MonsterAI, player)
 
     def update(self):
         self.components['monster'].take_turn()
@@ -198,62 +202,6 @@ class Renderer:
         self.render_objects(map)
         pygame.display.flip()
 
-# INPUT
-
-kbd.bind_key(pygame.K_UP, UP); kbd.bind_key(pygame.K_w, UP)
-kbd.bind_key(pygame.K_DOWN, DOWN); kbd.bind_key(pygame.K_s, DOWN)
-kbd.bind_key(pygame.K_LEFT, LEFT); kbd.bind_key(pygame.K_a, LEFT)
-kbd.bind_key(pygame.K_RIGHT, RIGHT); kbd.bind_key(pygame.K_d, RIGHT)
-kbd.bind_key(pygame.K_ESCAPE, EXIT)
-
-def handle_keys(map, player):
-    global wait
-
-    kbd.handle_keys()
-
-    if not kbd.is_pressed_any():
-        Game.game_state = Game.GS_IDLE
-    else:
-        for event in kbd.get():
-            if event.type == kbd.KEYDOWN:
-                if event.action == EXIT:
-                    return 'exit'
-                else:
-                    player.actions[event.action] = True
-                    Game.player_action = Game.PA_TURN
-                    Game.game_state = Game.GS_BUSY
-                    wait = 250
-            elif event.type == kbd.KEYUP:
-                player.actions[event.action] = False
-
-    if Game.game_state == Game.GS_BUSY:
-        if wait <= 0:
-            Game.player_action = Game.PA_TURN
-            wait = 100
-    
-    if Game.player_action == PA_TURN:
-        for object in map['objects']:
-            object.update()
-        Game.player_action = PA_IDLE
-        Game.turn_count += 1
-
-
-class Game:
-    GS_IDLE = 0
-    GS_BUSY = 1
-    GS_EXIT = 2
-    PA_IDLE = 0
-    PA_TURN = 1
-    game_state = GS_IDLE
-    player_action = PA_IDLE
-    turn_count = 0
-
-    @staticmethod
-    def update(map, player):
-        handle_keys(map, player)
-
-
-
 # INITIALIZATION & MAIN LOOP
 
 # generate map
@@ -267,22 +215,15 @@ libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
 
 # generate objects
 img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-rl.map.place_objects(map, 0, Monster, 2, 4, "friend", img, True)
+rl.map.place_objects(map, 0, Monster, 2, 4, "monster", img, True)
 
 camera = Camera(player, SCREEN_WIDTH, SCREEN_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
 renderer = Renderer(camera, TILE_SIZE)
 
-exit = False
-while Game.game_state != Game.GS_EXIT:
-    # handle keys and exit game if needed
-    exit = handle_keys(map, player)
-    if exit == 'exit':
-        pygame.quit()
-        
-    Game.update(map, player)
+while 1:        
+    game.update(map, player)
     
     # render the screen
     camera.update()
     renderer.render(map)
 
-    wait -= clock.tick()
