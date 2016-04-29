@@ -1,12 +1,23 @@
 import pygame
 
+# ITEM
+
+items = []
+
+class Item():
+    def __init__(self):
+        self.visible = True
+        items.append(self)
+
+# PANEL
+
 default_fill = (127, 127, 127, 255)
 default_stroke = (255, 255, 255, 255)
 default_rect = pygame.Rect((0,0), (64,32))
 
-panels = []
-class Panel():
+class Panel(Item):
     def __init__(self, rect=default_rect, fill=default_fill, stroke=default_stroke, stroke_w=0):
+        Item.__init__(self)
         surf = self.surface = pygame.Surface(rect.size).convert_alpha()
         self.fill = fill
         self.stroke = stroke
@@ -21,9 +32,9 @@ class Panel():
     def blit(self, dest):
         dest.blit(self.surface, self.get_rect().topleft)
 
-def render_gui(dest):
-    for panel in panels:
-        panel.blit(dest)
+# RENDER
 
-def add_panel(panel):
-    panels.append(panel)
+def render_gui(dest):
+    for item in items:
+        if item.visible:
+            item.blit(dest)

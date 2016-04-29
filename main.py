@@ -153,7 +153,6 @@ p_col_fill = (64, 64, 196, 127)
 p_col_stroke = (128, 128, 196, 127)
 
 panel = gui.Panel(p_rect, p_col_fill, p_col_stroke, 3)
-gui.add_panel(panel)
 
 # CAMERA & RENDERER
 
