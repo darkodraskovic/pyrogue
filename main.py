@@ -2,6 +2,7 @@ import os
 import rl
 from rl import libtcodpy as libtcod
 from rl import entity
+from rl import gui
 import pygame
 import game
 
@@ -81,6 +82,7 @@ class Fighter(entity.Component):
         attack_str = self.owner.name.capitalize() + ' attacks ' + target.name
         if damage > 0:
             print  attack_str + ' for ' + str(damage) + ' hit points.'
+            target.components['fighter'].take_damage(damage)
         else:
             print attack_str + ' but it has no effects.'
 
@@ -141,6 +143,18 @@ class Monster(entity.Object):
     def update(self):
         self.components['monster'].take_turn()
 
+
+# GUI
+
+p_w = SCREEN_WIDTH * TILE_SIZE
+p_h = TILE_SIZE
+p_rect = pygame.Rect((0, 0), (p_w, p_h))
+p_col_fill = (64, 64, 196, 127)
+p_col_stroke = (128, 128, 196, 127)
+
+panel = gui.Panel(p_rect, p_col_fill, p_col_stroke, 3)
+gui.add_panel(panel)
+
 # CAMERA & RENDERER
 
 class Camera:
@@ -200,6 +214,7 @@ class Renderer:
         screen.fill(self.BLACK)
         self.render_tiles(map)
         self.render_objects(map)
+        gui.render_gui(screen)
         pygame.display.flip()
 
 # INITIALIZATION & MAIN LOOP
