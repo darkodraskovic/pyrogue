@@ -152,7 +152,13 @@ p_rect = pygame.Rect((0, 0), (p_w, p_h))
 p_col_fill = (64, 64, 196, 127)
 p_col_stroke = (128, 128, 196, 127)
 
-panel = gui.Panel(p_rect, p_col_fill, p_col_stroke, 3)
+# panel = gui.Panel(64, 32, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
+# panel2 = gui.Panel(16, 0, parent=panel, padding=8, rect=pygame.Rect((0,0), (p_w/2, p_h/2)),
+#                    fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
+# text = gui.Text(0, 0, parent=panel2, padding=4, text="Text")
+
+panel = gui.Panel(0, 0, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
+text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162))
 
 # CAMERA & RENDERER
 
@@ -213,6 +219,7 @@ class Renderer:
         screen.fill(self.BLACK)
         self.render_tiles(map)
         self.render_objects(map)
+        text.set_text('HP: ' + str(player.components['fighter'].hp) + '/' + str(player.components['fighter'].max_hp))
         gui.render_gui(screen)
         pygame.display.flip()
 
