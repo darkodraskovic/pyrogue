@@ -71,7 +71,7 @@ class Text(Item):
     def set_text(self, text):
         self.surface = self.font.render(text, self.antialias, self.color)
 
-# RENDER
+# RENDERER
 
 def render_gui(dest):
     for item in items:

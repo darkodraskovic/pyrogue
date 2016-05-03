@@ -1,12 +1,13 @@
+from __future__ import division
 import pygame
 from rl import kbd
 
 clock = pygame.time.Clock()
-wait = 0
 
 GS_IDLE = 0
 GS_BUSY = 1
 GS_EXIT = 2
+GS_TRANSLATE = 3
 PA_IDLE = 0
 PA_TURN = 1
 
@@ -33,32 +34,24 @@ def handle_keys(map, player):
 
     kbd.handle_keys()
 
-    if not kbd.is_pressed_any():
-        game_state = GS_IDLE
-    else:
-        for event in kbd.get():
-            if event.type == kbd.KEYDOWN:
-                if event.action == EXIT:
-                    game_state = GS_EXIT
-                else:
-                    player.actions[event.action] = True
-                    player_action = PA_TURN
-                    game_state = GS_BUSY
-                    wait = 250
-            elif event.type == kbd.KEYUP:
-                player.actions[event.action] = False
-
-    if game_state == GS_BUSY:
-        if wait <= 0:
-            player_action = PA_TURN
-            wait = 100
+    for event in kbd.get():
+        if event.type == kbd.KEYDOWN:
+            if event.action == EXIT:
+                game_state = GS_EXIT
+            elif game_state == GS_IDLE:
+                player_action = PA_TURN
+                game_state = GS_TRANSLATE
+            player.actions[event.action] = True
+        elif event.type == kbd.KEYUP:
+            player.actions[event.action] = False
 
 def update(map, player):
-    global wait
     global turn_count
     global game_state
     global player_action
-    
+
+    dt = clock.tick() / 1000
+
     handle_keys(map, player)
 
     if player_action == PA_TURN:
@@ -66,8 +59,19 @@ def update(map, player):
             object.update()
         player_action = PA_IDLE
         turn_count += 1
-        
+
+    if game_state == GS_TRANSLATE:
+        translating = False
+        for object in map['objects']:
+            if object.world_target_x:
+                object.world_move(dt)
+                translating = True
+        if not translating:
+            if kbd.is_pressed_any():
+                player_action = PA_TURN
+            else:
+                game_state = GS_IDLE
+
     if game_state == GS_EXIT:
         pygame.quit()
 
-    wait -= clock.tick()

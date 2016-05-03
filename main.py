@@ -152,47 +152,44 @@ p_rect = pygame.Rect((0, 0), (p_w, p_h))
 p_col_fill = (64, 64, 196, 127)
 p_col_stroke = (128, 128, 196, 127)
 
-# panel = gui.Panel(64, 32, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
-# panel2 = gui.Panel(16, 0, parent=panel, padding=8, rect=pygame.Rect((0,0), (p_w/2, p_h/2)),
-#                    fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
-# text = gui.Text(0, 0, parent=panel2, padding=4, text="Text")
-
 panel = gui.Panel(0, 0, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
 text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162))
 
 # CAMERA & RENDERER
 
 class Camera:
-    def __init__(self, followee, scr_w, scr_h, map_w, map_h):
+    def __init__(self, followee, scr_w, scr_h, world_w, world_h):
         self.x = 0
         self.y = 0
         self.followee = followee
         self.scr_w = scr_w
         self.scr_h = scr_h
-        self.map_w = map_w
-        self.map_h = map_h
+        self.world_w = world_w
+        self.world_h = world_h
 
     def update(self):
-        self.x = self.followee.x - self.scr_w/2
-        self.y = self.followee.y - self.scr_h/2
-        self.x = max(0, min(self.x, self.map_w - self.scr_w))
-        self.y = max(0, min(self.y, self.map_h - self.scr_h))
+        self.x = self.followee.x - SCREEN_WIDTH/2
+        self.y = self.followee.y - SCREEN_HEIGHT/2
+        self.x = max(0, min(self.x, MAP_WIDTH - SCREEN_WIDTH))
+        self.y = max(0, min(self.y, MAP_HEIGHT - SCREEN_HEIGHT))
+        self.world_x = self.followee.world_x - self.scr_w/2
+        self.world_y = self.followee.world_y - self.scr_h/2
+        self.world_x = max(0, min(self.world_x, self.world_w - self.scr_w))
+        self.world_y = max(0, min(self.world_y, self.world_h - self.scr_h))
 
 
 class Renderer:
     BLACK = (0,0,0)
 
-    def __init__(self, camera, tile_size):
+    def __init__(self, camera):
         self.camera = camera
-        self.tile_size = tile_size
 
     def render_tiles(self, map):
         cam = self.camera
         data = map['data']
         fov_map = map['fov_map']
-        map_width = len(data); map_height = len(data[0])
-        for x in range(max(0, cam.x), min(cam.x + cam.scr_w, map_width)):
-            for y in range(max(0, cam.y), min(cam.y + cam.scr_h, map_height)):
+        for x in range(max(0, cam.x-1), min(cam.x + SCREEN_WIDTH + 1, MAP_WIDTH)):
+            for y in range(max(0, cam.y-1), min(cam.y + SCREEN_HEIGHT + 1, MAP_HEIGHT)):
                 if libtcod.map_is_in_fov(fov_map, x, y):
                     img = tileset_lit
                     data[x][y].explored = True
@@ -203,7 +200,7 @@ class Renderer:
                     rect = tile_wall
                 else:
                     rect = tile_floor
-                screen.blit(img, ((x - cam.x) * self.tile_size, (y - cam.y) * self.tile_size), rect)
+                screen.blit(img, (x * TILE_SIZE - cam.world_x, y * TILE_SIZE - cam.world_y), rect)
 
     def render_objects(self, map):
         cam = self.camera
@@ -212,8 +209,7 @@ class Renderer:
         for object in objects:
             if libtcod.map_is_in_fov(fov_map, object.x, object.y):
                 img = pygame.transform.flip(object.image, object.flip, False)
-                screen.blit(img, ((object.x - cam.x) * self.tile_size,
-                                  (object.y - cam.y) * self.tile_size))
+                screen.blit(img, (object.world_x - cam.world_x, object.world_y - cam.world_y))
 
     def render(self, map):
         screen.fill(self.BLACK)
@@ -238,8 +234,9 @@ libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
 img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
 rl.map.place_objects(map, 0, Monster, 2, 4, "monster", img, True)
 
-camera = Camera(player, SCREEN_WIDTH, SCREEN_HEIGHT, MAP_WIDTH, MAP_HEIGHT)
-renderer = Renderer(camera, TILE_SIZE)
+camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
+                MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE)
+renderer = Renderer(camera)
 
 while 1:        
     game.update(map, player)

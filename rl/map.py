@@ -1,4 +1,5 @@
 import libtcodpy as libtcod
+import math
 
 class Rect:
     def __init__(self, x, y, w, h):
@@ -153,3 +154,10 @@ def place_objects(map, room_index, object_type, min_objects, max_objects, *args)
             map['objects'].append(obj)
             objs.append(obj)
     return objs
+
+def world_to_map(tile_size, world_coord):
+    return math.floor(world_coord/tile_size)
+
+def map_to_world(tile_size, map_coord):
+    return tile_size * map_coord
+    
