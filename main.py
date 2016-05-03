@@ -9,8 +9,9 @@ import game
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
 
 # actual size of the window in cells
-SCREEN_WIDTH = 40
-SCREEN_HEIGHT = 24
+SCREEN_WIDTH = 36
+SCREEN_HEIGHT = 20
+SCALE = 2
 
 # size of the map
 MAP_WIDTH = 80
@@ -26,9 +27,10 @@ tile_wall = pygame.Rect(6 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 tile_floor = pygame.Rect(0 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
 # actual size of the window in pixels
-size = width, height = SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE
+size = width, height = SCREEN_WIDTH * TILE_SIZE * SCALE, SCREEN_HEIGHT * TILE_SIZE * SCALE
 pygame.init()
 screen = pygame.display.set_mode(size)
+screen_buffer = pygame.Surface((size[0]/2, size[1]/2))
 
 prefix = 'assets/images/'
 manifest = {
@@ -143,18 +145,6 @@ class Monster(entity.Object):
     def update(self):
         self.components['monster'].take_turn()
 
-
-# GUI
-
-p_w = SCREEN_WIDTH * TILE_SIZE
-p_h = TILE_SIZE
-p_rect = pygame.Rect((0, 0), (p_w, p_h))
-p_col_fill = (64, 64, 196, 127)
-p_col_stroke = (128, 128, 196, 127)
-
-panel = gui.Panel(0, 0, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
-text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162))
-
 # CAMERA & RENDERER
 
 class Camera:
@@ -180,6 +170,7 @@ class Camera:
 
 class Renderer:
     BLACK = (0,0,0)
+    global screen_buffer
 
     def __init__(self, camera):
         self.camera = camera
@@ -200,7 +191,7 @@ class Renderer:
                     rect = tile_wall
                 else:
                     rect = tile_floor
-                screen.blit(img, (x * TILE_SIZE - cam.world_x, y * TILE_SIZE - cam.world_y), rect)
+                screen_buffer.blit(img, (x * TILE_SIZE - cam.world_x, y * TILE_SIZE - cam.world_y), rect)
 
     def render_objects(self, map):
         cam = self.camera
@@ -209,13 +200,17 @@ class Renderer:
         for object in objects:
             if libtcod.map_is_in_fov(fov_map, object.x, object.y):
                 img = pygame.transform.flip(object.image, object.flip, False)
-                screen.blit(img, (object.world_x - cam.world_x, object.world_y - cam.world_y))
+                screen_buffer.blit(img, (object.world_x - cam.world_x, object.world_y - cam.world_y))
 
     def render(self, map):
-        screen.fill(self.BLACK)
+        screen_buffer.fill(self.BLACK)
         self.render_tiles(map)
         self.render_objects(map)
-        text.set_text('HP: ' + str(player.components['fighter'].hp) + '/' + str(player.components['fighter'].max_hp))
+        rect = screen.get_rect()
+        text.set_text('HP: ' + str(player.components['fighter'].hp) + '/' +\
+                      str(player.components['fighter'].max_hp))
+        scr = pygame.transform.scale(screen_buffer, (rect.width, rect.height))
+        screen.blit(scr, screen.get_rect())
         gui.render_gui(screen)
         pygame.display.flip()
 
@@ -230,9 +225,23 @@ player = rl.map.place_object(map, 0, Player, "player", img, True)
 libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
                         FOV_LIGHT_WALLS, FOV_ALGO)
 
-# generate objects
+# generate other entities
 img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
 rl.map.place_objects(map, 0, Monster, 2, 4, "monster", img, True)
+
+# Gui
+
+ts = TILE_SIZE * SCALE
+p_w = SCREEN_WIDTH * ts
+p_h = ts
+p_rect = pygame.Rect((0, 0), (p_w, p_h))
+p_col_fill = (64, 64, 196, 127)
+p_col_stroke = (128, 128, 196, 127)
+
+panel = gui.Panel(0, 0, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
+text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162), size=32)
+
+# Camera & renderer
 
 camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
                 MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE)

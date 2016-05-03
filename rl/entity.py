@@ -34,11 +34,10 @@ class Object:
         dy = self.world_target_y - self.world_y
         dist = math.sqrt(dx**2 + dy**2)
 
-        speed = self.tile_size * self.tile_speed * dt
-        velX = (dx / dist) * speed;
-        velY = (dy / dist) * speed;
-
         if dist > 1:
+            speed = self.tile_size * self.tile_speed * dt
+            velX = (dx / dist) * speed;
+            velY = (dy / dist) * speed;
             self.world_x += velX;
             self.world_y += velY;
         else:
