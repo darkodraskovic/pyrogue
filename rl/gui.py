@@ -6,11 +6,6 @@ items = []
 
 class Item():
     def __init__(self, x, y, parent, padding):
-        self.visible = True
-        self.x = x
-        self.y = y
-        self.padding = padding
-
         self.children = []
         if parent:
             parent.children.append(self)
@@ -19,18 +14,32 @@ class Item():
             items.append(self)
             self.parent = None
 
-    def render(self, dest, transl_x, transl_y):
-        if self.parent != None:
-            transl_x += self.parent.x + self.padding
-            transl_y += self.parent.y + self.padding
-            
-        dest.blit(self.surface, (
-            transl_x + self.x,
-            transl_y + self.y)
-        )
+        self.visible = True
+        self.x = x
+        self.y = y
+        self.padding = padding
+        self.screen_x = x
+        self.screen_y = y
+        self.update_transform()
 
+
+    def update_transform(self):
+        parent = self.parent
+        if parent == None: return
+        
+        self.screen_x = self.x + self.padding
+        self.screen_y = self.y + self.padding
+        
+        while parent != None:
+            self.screen_x += parent.x + parent.padding
+            self.screen_y += parent.y + parent.padding
+            parent = parent.parent
+            
+    def render(self, dest):
+        self.update_transform()
+        dest.blit(self.surface, (self.screen_x, self.screen_y))
         for child in self.children:
-            child.render(dest, transl_x, transl_y)
+            child.render(dest)
 
 # PANEL
 
@@ -75,4 +84,4 @@ class Text(Item):
 
 def render_gui(dest):
     for item in items:
-        if item.visible: item.render(dest, 0, 0)
+        if item.visible: item.render(dest)

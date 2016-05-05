@@ -5,9 +5,8 @@ from rl import kbd
 clock = pygame.time.Clock()
 
 GS_IDLE = 0
-GS_BUSY = 1
 GS_EXIT = 2
-GS_TRANSLATE = 3
+GS_UPDATE = 3
 PA_IDLE = 0
 PA_TURN = 1
 
@@ -40,7 +39,7 @@ def handle_keys(map, player):
                 game_state = GS_EXIT
             elif game_state == GS_IDLE:
                 player_action = PA_TURN
-                game_state = GS_TRANSLATE
+                game_state = GS_UPDATE
             player.actions[event.action] = True
         elif event.type == kbd.KEYUP:
             player.actions[event.action] = False
@@ -56,17 +55,15 @@ def update(map, player):
 
     if player_action == PA_TURN:
         for object in map['objects']:
-            object.update()
+            object.take_turn()
         player_action = PA_IDLE
         turn_count += 1
 
-    if game_state == GS_TRANSLATE:
-        translating = False
+    if game_state == GS_UPDATE:
+        needs_update = False
         for object in map['objects']:
-            if object.world_target_x:
-                object.world_move(dt)
-                translating = True
-        if not translating:
+            needs_update = object.update(dt) or needs_update
+        if not needs_update:
             if kbd.is_pressed_any():
                 player_action = PA_TURN
             else:
