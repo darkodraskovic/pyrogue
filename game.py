@@ -26,7 +26,7 @@ kbd.bind_key(pygame.K_LEFT, LEFT); kbd.bind_key(pygame.K_a, LEFT)
 kbd.bind_key(pygame.K_RIGHT, RIGHT); kbd.bind_key(pygame.K_d, RIGHT)
 kbd.bind_key(pygame.K_ESCAPE, EXIT)
 
-def handle_keys(map, player):
+def handle_keys(player):
     global wait
     global game_state
     global player_action
@@ -44,26 +44,25 @@ def handle_keys(map, player):
         elif event.type == kbd.KEYUP:
             player.actions[event.action] = False
 
-def update(map, player):
+def update(player, object_group):
     global turn_count
     global game_state
     global player_action
 
     dt = clock.tick() / 1000
 
-    handle_keys(map, player)
+    handle_keys(player)
 
     if player_action == PA_TURN:
-        for object in map['objects']:
+        for object in object_group:
             object.take_turn()
         player_action = PA_IDLE
         turn_count += 1
 
     if game_state == GS_UPDATE:
-        needs_update = False
-        for object in map['objects']:
-            needs_update = object.update(dt) or needs_update
-        if not needs_update:
+        object_group.update(dt)
+
+        if not next((x for x in object_group if x.is_updating == True), None):
             if kbd.is_pressed_any():
                 player_action = PA_TURN
             else:

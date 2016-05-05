@@ -93,9 +93,3 @@ class Translator(Component):
         self.dest_y = y * self.tile_size
         self.has_dest = True
 
-    def get_pos(self):
-        return (self.x, self.y)
-
-    def get_pos_offset(self, offset_x, offset_y):
-        return (self.x - offset_x, self.y - offset_y)
-

@@ -106,28 +106,43 @@ class MonsterAI(entity.Component):
             
 
 # OBJECTS
-class Entity(entity.Object):
+class Entity(entity.Object, pygame.sprite.DirtySprite):
     def __init__(self, x, y, name, blocks=False, image=None):
         entity.Object.__init__(self, x, y, name, blocks)
+        pygame.sprite.DirtySprite.__init__(self)
+        
         self.image = image
         self.rect = image.get_rect()
+        self.visible = 1
+        self.dirty = 2
         self.flip = False
         self.add_component(entity.Translator, TILE_SIZE, 5)
+        self.is_updating = False
 
     def update(self, dt):
+        if self.is_updating:
+            transl = self.components['translator']
+            if transl.has_dest:
+                transl.move(dt)
+            else:
+                self.is_updating = False
+
+    def update_rect(self, offset_x=0, offset_y=0):
         transl = self.components['translator']
-        if transl.has_dest:
-            transl.move(dt)
-            
-        return transl.has_dest
+        self.rect.x = transl.x - offset_x
+        self.rect.y = transl.y - offset_y
 
-    def get_screen_pos(self, offset_x, offset_y):
-        return self.components['translator'].get_pos_offset(offset_x, offset_y)
+    def take_turn(self):
+        self.is_updating = True
 
-    def render(self, dest_surf, (x, y)):
-        image = pygame.transform.flip(self.image, self.flip, False)
-        dest_surf.blit(image, (x, y))
-        
+    def move(self, dx, dy):
+        entity.Object.move(self, dx, dy)
+        if dx > 0 and self.flip == False:
+            self.flip = True
+            self.image = pygame.transform.flip(self.image, True, False)
+        elif dx < 0 and self.flip == True:
+            self.flip = False
+            self.image = pygame.transform.flip(self.image, True, False)
 
 class Player(Entity):
     def __init__(self, x, y, name, image, blocks=False):
@@ -135,12 +150,8 @@ class Player(Entity):
         self.actions = {game.UP: False, game.DOWN: False, game.LEFT: False, game.RIGHT: False}
         self.add_component(Fighter, 36, 10, 8)
 
-    def move(self, dx, dy):
-        if entity.Object.move(self, dx, dy):
-            libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y, LIGHT_RADIUS,
-                                    FOV_LIGHT_WALLS, FOV_ALGO)
-
     def take_turn(self):
+        Entity.take_turn(self)
         dx = dy = 0
         actions = self.actions
         if actions[game.UP]: dy = -1
@@ -148,9 +159,6 @@ class Player(Entity):
         elif actions[game.LEFT]: dx = -1; 
         elif actions[game.RIGHT]: dx = +1;
         if dx or dy:
-            if dx < 0: self.flip = False
-            else: self.flip = True
-            
             target = None
             for object in self.map['objects']:
                 if object != self and object.x == self.x+dx and object.y == self.y+dy:
@@ -161,6 +169,8 @@ class Player(Entity):
                 self.components['fighter'].attack(target)
             else:
                 self.move(dx, dy)
+                libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y,
+                                        LIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
                 self.components['translator'].set_destination(self.x, self.y)
 
 class Monster(Entity):
@@ -170,6 +180,7 @@ class Monster(Entity):
         self.add_component(MonsterAI, player)
 
     def take_turn(self):
+        Entity.take_turn(self)
         self.components['monster'].take_turn()
 
 # CAMERA & RENDERER
@@ -224,10 +235,15 @@ class Renderer:
     def render_objects(self, map):
         cam = self.camera
         fov_map = map['fov_map']        
-        for object in map['objects']:
+        # for object in map['objects']:
+        for object in object_group:
             if libtcod.map_is_in_fov(fov_map, object.x, object.y):
-                object.render(screen_buffer, object.get_screen_pos(cam.world_x, cam.world_y))
-
+                object.visible = 1
+                object.update_rect(cam.world_x, cam.world_y)
+            else:
+                object.visible = 0
+            object_group.draw(screen_buffer)
+            
     def render(self, map):
         screen_buffer.fill(self.BLACK)
         self.render_tiles(map)
@@ -237,7 +253,7 @@ class Renderer:
                       str(player.components['fighter'].max_hp))
         scr = pygame.transform.scale(screen_buffer, (rect.width, rect.height))
         screen.blit(scr, screen.get_rect())
-        gui.render_gui(screen)
+        gui_group.draw(screen)
         pygame.display.flip()
 
 # INITIALIZATION & MAIN LOOP
@@ -253,7 +269,10 @@ libtcod.map_compute_fov(map['fov_map'], player.x, player.y, LIGHT_RADIUS,
 
 # generate other entities
 img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-rl.map.place_objects(map, 0, Monster, 2, 4, "monster", True, img)
+objs = rl.map.place_objects(map, 0, Monster, 2, 4, "monster", True, img)
+
+objs = [player] + objs
+object_group = pygame.sprite.LayeredDirty(*objs)
 
 # Gui
 
@@ -264,8 +283,9 @@ p_rect = pygame.Rect((0, 0), (p_w, p_h))
 p_col_fill = (64, 64, 196, 127)
 p_col_stroke = (128, 128, 196, 127)
 
-panel = gui.Panel(32, 32, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
+panel = gui.Panel(0, 0, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, stroke_size=3)
 text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162), size=32)
+gui_group = pygame.sprite.LayeredDirty(panel, text)
 
 # Camera & renderer
 
@@ -274,7 +294,7 @@ camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
 renderer = Renderer(camera)
 
 while 1:        
-    game.update(map, player)
+    game.update(player, object_group)
     
     # render the screen
     camera.update()

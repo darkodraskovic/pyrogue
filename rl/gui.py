@@ -4,8 +4,10 @@ import pygame
 
 items = []
 
-class Item():
+class Item(pygame.sprite.DirtySprite):
     def __init__(self, x, y, parent, padding):
+        pygame.sprite.DirtySprite.__init__(self)
+        
         self.children = []
         if parent:
             parent.children.append(self)
@@ -14,32 +16,28 @@ class Item():
             items.append(self)
             self.parent = None
 
-        self.visible = True
+        self.visible = 1
+        self.dirty = 2
+        self.rect = self.image.get_rect()
+        
         self.x = x
         self.y = y
         self.padding = padding
-        self.screen_x = x
-        self.screen_y = y
-        self.update_transform()
+        self.update_rect()
 
 
-    def update_transform(self):
+    def update_rect(self):
+        rect = self.rect
+        rect.x = self.x + self.padding
+        rect.y = self.y + self.padding
+        
         parent = self.parent
         if parent == None: return
-        
-        self.screen_x = self.x + self.padding
-        self.screen_y = self.y + self.padding
-        
+
         while parent != None:
-            self.screen_x += parent.x + parent.padding
-            self.screen_y += parent.y + parent.padding
+            rect.x += parent.x + parent.padding
+            rect.y += parent.y + parent.padding
             parent = parent.parent
-            
-    def render(self, dest):
-        self.update_transform()
-        dest.blit(self.surface, (self.screen_x, self.screen_y))
-        for child in self.children:
-            child.render(dest)
 
 # PANEL
 
@@ -50,38 +48,31 @@ default_rect = pygame.Rect((0,0), (64,32))
 class Panel(Item):
     def __init__(self, x=0, y=0, parent=None, padding=0,
                  rect=default_rect, fill=default_fill, stroke=default_stroke, stroke_size=0):
-        Item.__init__(self, x, y, parent, padding)
-        surf = self.surface = pygame.Surface(rect.size).convert_alpha()
+        self.image = pygame.Surface(rect.size).convert_alpha()
         self.fill = fill
         self.stroke = stroke
         self.stroke_size = stroke_size
-        pygame.draw.rect(surf, fill, rect)
+        pygame.draw.rect(self.image, fill, rect)
         if (stroke_size > 0):
-            pygame.draw.rect(surf, stroke, rect, stroke_size)
-
-    def get_rect(self):
-        return self.surface.get_rect()
+            pygame.draw.rect(self.image, stroke, rect, stroke_size)
+            
+        Item.__init__(self, x, y, parent, padding)
 
 # TEXT
 
 class Text(Item):
     def __init__(self, x=0, y=0, parent=None, padding=0,
                  text="", font=None, size=16, color=default_fill, antialias=True):
-        Item.__init__(self, x, y, parent, padding)
         self.font = pygame.font.Font(font, size)
         self.text = text
         self.antialias = antialias
         self.color = color
-        self.surface = self.font.render(text, antialias, color)
+        self.image = self.font.render(text, antialias, color)
+        
+        Item.__init__(self, x, y, parent, padding)
         
     def get_size(self):
         return self.font.get_size()
 
     def set_text(self, text):
-        self.surface = self.font.render(text, self.antialias, self.color)
-
-# RENDERER
-
-def render_gui(dest):
-    for item in items:
-        if item.visible: item.render(dest)
+        self.image = self.font.render(text, self.antialias, self.color)
