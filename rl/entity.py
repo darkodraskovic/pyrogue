@@ -10,7 +10,7 @@ class Component:
         self.name = name
         owner.components[name] = self
 
-class Object:
+class Entity:
     # this is a generic object: the player, a monster, an item, the stairs...
     def __init__(self, x, y, name, blocks=False):
         self.x = x
@@ -57,7 +57,7 @@ class Object:
             self.y += dy
             return True
 
-# DERIVED CLASSES
+# DERIVED COMPONENTS
 
 class Translator(Component):
     def __init__(self, owner, tile_size, tile_speed):
@@ -92,4 +92,3 @@ class Translator(Component):
         self.dest_x = x * self.tile_size
         self.dest_y = y * self.tile_size
         self.has_dest = True
-
