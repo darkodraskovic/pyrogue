@@ -1,16 +1,11 @@
 from rl import libtcodpy as libtcod
 from rl import entity
+from settings import *
 import pygame
 import game
 
-# FOV constants
-
-FOV_ALGO = 0  # default FOV algorithm
-FOV_LIGHT_WALLS = True
-LIGHT_RADIUS = 10
 
 # COMPONENTS
-
 class Fighter(entity.Component):
     #combat-related properties and methods (monster, player, NPC).
     def __init__(self, owner, hp, defense_pow, attack_pow):
@@ -52,7 +47,7 @@ class MonsterAI(entity.Component):
                 self.owner.components['fighter'].attack(target)
             
 
-# OBJECTS
+# ENTITIES
 class Entity(entity.Entity, pygame.sprite.DirtySprite):
     def __init__(self, x, y, name, blocks=False, image=None):
         entity.Entity.__init__(self, x, y, name, blocks)
@@ -65,7 +60,7 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
         self.dirty = 2
         self.flipped_x = False
         self.flipped_y = False
-        self.add_component(entity.Translator, 24, 5)
+        self.add_component(entity.Translator, TILE_SIZE, 1000 / TURN_SPEED)
         self.is_updating = False
         self.map = None
 
@@ -105,9 +100,10 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
         self.image = pygame.transform.flip(self._image, xbool, ybool)
 
     def kill(self):
-        pygame.sprite.DirtySprite.kill(self)
         if self.map:
-            map['objects'].remove(self)
+            self.map['objects'].remove(self)
+            del self.map
+        pygame.sprite.DirtySprite.kill(self)
 
 class Player(Entity):
     def __init__(self, x, y, name, image, blocks=False):

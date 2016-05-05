@@ -1,6 +1,7 @@
 from __future__ import division
 import pygame
 from rl import kbd
+from settings import *
 
 clock = pygame.time.Clock()
 
@@ -44,11 +45,13 @@ def handle_keys(player):
         elif event.type == kbd.KEYUP:
             player.actions[event.action] = False
 
+wait = 0
 def update(player, object_group):
     global turn_count
     global game_state
     global player_action
-
+    global wait
+    
     dt = clock.tick() / 1000
 
     handle_keys(player)
@@ -57,16 +60,20 @@ def update(player, object_group):
         for object in object_group:
             object.take_turn()
         player_action = PA_IDLE
+        wait = TURN_SPEED
         turn_count += 1
 
     if game_state == GS_UPDATE:
         object_group.update(dt)
+        wait -= dt * 1000
 
         if not next((x for x in object_group if x.is_updating == True), None):
             if kbd.is_pressed_any():
-                player_action = PA_TURN
+                if wait <= 0:
+                    player_action = PA_TURN
             else:
                 game_state = GS_IDLE
+                wait = 0
 
     if game_state == GS_EXIT:
         pygame.quit()

@@ -3,26 +3,12 @@ import rl
 from rl import libtcodpy as libtcod
 from rl import gui
 import pygame
+from settings import *
 import game
 import entity
 
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
 
-# actual size of the window in cells
-SCREEN_WIDTH = 36
-SCREEN_HEIGHT = 20
-SCALE = 2
-
-# size of the map
-MAP_WIDTH = 80
-MAP_HEIGHT = 48
-
-# parameters for dungeon generator
-ROOM_MAX_SIZE = 10
-ROOM_MIN_SIZE = 6
-MAX_ROOMS = 30
-
-TILE_SIZE = 24
 tile_wall = pygame.Rect(6 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 tile_floor = pygame.Rect(0 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
@@ -161,7 +147,6 @@ text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162
 gui_group = pygame.sprite.LayeredDirty(panel, text)
 
 # Camera & renderer
-
 camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
                 MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE)
 renderer = Renderer(camera)
