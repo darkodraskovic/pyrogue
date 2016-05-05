@@ -18,6 +18,8 @@ class Fighter(entity.Component):
     def take_damage(self, damage):
         if damage > 0:
             self.hp -= damage
+        if self.hp <= 0:
+            self.owner.dead = True
 
     def attack(self, target):
         damage = self.attack_pow - target.components['fighter'].defense_pow
@@ -52,7 +54,8 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
     def __init__(self, x, y, name, blocks=False, image=None):
         entity.Entity.__init__(self, x, y, name, blocks)
         pygame.sprite.DirtySprite.__init__(self)
-        
+
+        # sprite
         self.image = image
         self._image = image
         self.rect = image.get_rect()
@@ -60,9 +63,14 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
         self.dirty = 2
         self.flipped_x = False
         self.flipped_y = False
+
+        # update
         self.add_component(entity.Translator, TILE_SIZE, 1000 / TURN_SPEED)
         self.is_updating = False
+
+        # rl
         self.map = None
+        self.dead = False
 
     def update(self, dt):
         if self.is_updating:
@@ -87,6 +95,10 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
         elif dx < 0:
             self.flip(False, False)
 
+    def compute_fov(self):
+        libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y,
+                                LIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
+
     def flip(self, xbool, ybool):
         if xbool and not self.flipped_x:
             self.flipped_x = True
@@ -110,10 +122,6 @@ class Player(Entity):
         Entity.__init__(self, x, y, name, image, blocks)
         self.actions = {game.UP: False, game.DOWN: False, game.LEFT: False, game.RIGHT: False}
         self.add_component(Fighter, 36, 10, 8)
-
-    def compute_fov(self):
-        libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y,
-                                LIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
 
     def take_turn(self):
         Entity.take_turn(self)
@@ -146,3 +154,4 @@ class Monster(Entity):
     def take_turn(self):
         Entity.take_turn(self)
         self.components['monster'].take_turn()
+

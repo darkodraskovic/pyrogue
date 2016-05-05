@@ -151,7 +151,7 @@ camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
                 MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE)
 renderer = Renderer(camera)
 
-while 1:        
+while 1:
     game.update(player, object_group)
     
     # render the screen

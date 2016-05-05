@@ -5,9 +5,9 @@ from settings import *
 
 clock = pygame.time.Clock()
 
-GS_IDLE = 0
-GS_EXIT = 2
-GS_UPDATE = 3
+GS_EXIT = 0
+GS_IDLE = 1
+GS_UPDATE = 2
 PA_IDLE = 0
 PA_TURN = 1
 
@@ -38,10 +38,8 @@ def handle_keys(player):
         if event.type == kbd.KEYDOWN:
             if event.action == EXIT:
                 game_state = GS_EXIT
-            elif game_state == GS_IDLE:
-                player_action = PA_TURN
-                game_state = GS_UPDATE
-            player.actions[event.action] = True
+            elif event.action in player.actions:
+                player.actions[event.action] = True
         elif event.type == kbd.KEYUP:
             player.actions[event.action] = False
 
@@ -52,28 +50,25 @@ def update(player, object_group):
     global player_action
     global wait
     
-    dt = clock.tick() / 1000
-
     handle_keys(player)
 
-    if player_action == PA_TURN:
-        for object in object_group:
-            object.take_turn()
-        player_action = PA_IDLE
+    if game_state == GS_IDLE and True in player.actions.values():
+        game_state = GS_UPDATE 
         wait = TURN_SPEED
         turn_count += 1
+        for object in object_group:
+            object.take_turn()
 
+    dt = clock.tick()
     if game_state == GS_UPDATE:
-        object_group.update(dt)
-        wait -= dt * 1000
-
+        wait -= dt
+        object_group.update(dt/1000)
         if not next((x for x in object_group if x.is_updating == True), None):
-            if kbd.is_pressed_any():
-                if wait <= 0:
-                    player_action = PA_TURN
-            else:
-                game_state = GS_IDLE
-                wait = 0
+            if True in player.actions.values():
+                if wait <=0:
+                    game_state = GS_IDLE
+                    for object in object_group:
+                        if object.dead: object.kill()
 
     if game_state == GS_EXIT:
         pygame.quit()
