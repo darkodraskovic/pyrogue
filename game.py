@@ -60,6 +60,10 @@ def update(player, object_group):
             object.take_turn()
 
     dt = clock.tick()
+    
+    for object in object_group:
+        object.update_anim(dt/1000)
+
     if game_state == GS_UPDATE:
         wait -= dt
         object_group.update(dt/1000)

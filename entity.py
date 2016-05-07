@@ -1,5 +1,6 @@
 from rl import libtcodpy as libtcod
 from rl import entity
+from rl import anim
 from settings import *
 import pygame
 import game
@@ -50,25 +51,14 @@ class MonsterAI(entity.Component):
             
 
 # ENTITIES
-class Entity(entity.Entity, pygame.sprite.DirtySprite):
-    def __init__(self, x, y, name, blocks=False, image=None):
+class Entity(entity.Entity, anim.AnimatedSprite):
+    def __init__(self, x, y, name, anim_sheet, default_frame=0, blocks=False):
         entity.Entity.__init__(self, x, y, name, blocks)
-        pygame.sprite.DirtySprite.__init__(self)
+        anim.AnimatedSprite.__init__(self, anim_sheet, default_frame)
 
-        # sprite
-        self.image = image
-        self._image = image
-        self.rect = image.get_rect()
-        self.visible = 1
-        self.dirty = 2
-        self.flipped_x = False
-        self.flipped_y = False
-
-        # update
         self.add_component(entity.Translator, TILE_SIZE, 1000 / TURN_SPEED)
         self.is_updating = False
 
-        # rl
         self.map = None
         self.dead = False
 
@@ -88,28 +78,9 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
     def take_turn(self):
         self.is_updating = True
 
-    def move(self, dx, dy):
-        entity.Entity.move(self, dx, dy)
-        if dx > 0:
-            self.flip(True, False)
-        elif dx < 0:
-            self.flip(False, False)
-
     def compute_fov(self):
         libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y,
                                 LIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
-
-    def flip(self, xbool, ybool):
-        if xbool and not self.flipped_x:
-            self.flipped_x = True
-        elif not xbool and self.flipped_x:
-            self.flipped_x = False
-        if ybool and not self.flipped_y:
-            self.flipped_y = True
-        elif not ybool and self.flipped_y:
-            self.flipped_y = False
-
-        self.image = pygame.transform.flip(self._image, xbool, ybool)
 
     def kill(self):
         if self.map:
@@ -118,8 +89,8 @@ class Entity(entity.Entity, pygame.sprite.DirtySprite):
         pygame.sprite.DirtySprite.kill(self)
 
 class Player(Entity):
-    def __init__(self, x, y, name, image, blocks=False):
-        Entity.__init__(self, x, y, name, image, blocks)
+    def __init__(self, x, y, name, anim_sheet, default_frame=0, blocks=False):
+        Entity.__init__(self, x, y, name, anim_sheet, default_frame, blocks)
         self.actions = {game.UP: False, game.DOWN: False, game.LEFT: False, game.RIGHT: False}
         self.add_component(Fighter, 36, 10, 8)
 
@@ -146,8 +117,8 @@ class Player(Entity):
                 self.components['translator'].set_destination(self.x, self.y)
 
 class Monster(Entity):
-    def __init__(self, x, y, name, image, blocks=False, target=None):
-        Entity.__init__(self, x, y, name, image, blocks)
+    def __init__(self, x, y, name, anim_sheet, default_frame=0, blocks=False, target=None):
+        Entity.__init__(self, x, y, name, anim_sheet, default_frame, blocks)
         self.add_component(Fighter, 8, 6, 12)
         self.add_component(MonsterAI, target)
 

@@ -10,7 +10,7 @@
 
 # AnimCursor.unpause() unpauses the animation.
 
-# AnimCursor.update(dt) Updates the animation with td being the difference in time between updates measured in 1/1000s of a second.
+# AnimCursor.update(dt) Updates the animation with dt being the difference in time between updates measured in 1/1000s of a second.
 
 # After updating the animation cursor will contain information about the current state of the animation.
 
@@ -23,15 +23,40 @@
 # AnimCursor.playing tells if the animation is currently playing or is stopped.
 
 # AnimCursor.playtime keeps track of how long the animation has been playing.
+import pygame
 
 LOOP = 0
 ONCE = 1
+
+# ANIM
+
+class AnimSheet():
+    def __init__(self, image, frame_w, frame_h):
+        self.image = image
+        self.frame_w = frame_w
+        self.frame_h = frame_h
+        self.frames = self.parse_image(image, frame_w, frame_h)
+
+    @staticmethod
+    def parse_image(image, frame_w, frame_h):
+        frames = []
+        rect = pygame.Rect(0, 0, frame_w, frame_h)
+        for y in range(image.get_height() / frame_h):
+            for x in range(image.get_width() / frame_w):
+                rect.topleft = (x * frame_w, y * frame_h)
+                frames.append(image.subsurface(rect))
+        return frames
 
 class Anim:
     def __init__(self, frames, mode=LOOP):
         self.frames = frames
         self.playmode = mode
-        
+        self.flip_x = False
+        self.flip_y = False
+
+    def flip(self, boolx, booly):                
+        for idx, frame in enumerate(self.frames):
+            self.frames[idx] = pygame.transform.flip(frame[0], boolx, booly), frame[1]
 
 class AnimCursor:
     def __init__(self):
@@ -74,12 +99,12 @@ class AnimCursor:
         self.playing = True
 
     def update(self, dt):
-        dt = dt * self.playspeed
-        self.played = []
         if self.playing:
+            dt = dt * self.playspeed
+            self.played = []
             self.playtime += dt
             self.timeleft -= dt
-            self.transition = self.timeleft / self.frame_time
+            # self.transition = self.timeleft / self.frame_time
 
             while self.timeleft <= 0.0:
                 self.frame_num = (self.frame_num + 1) % len(self.anim.frames)
@@ -95,7 +120,47 @@ class AnimCursor:
                 self.current = frame
                 self.next = self.anim.frames[self.next_frame][0]
                 self.played.append(frame)
-                self.transition = self.timeleft / time
+                # self.transition = self.timeleft / time
                 
                 if self.frame_num == 0:
                     self.playtime = self.timeleft
+
+# SPRITE
+class Sprite(pygame.sprite.DirtySprite):
+    def __init__(self, image):
+        pygame.sprite.DirtySprite.__init__(self)
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.visible = 1
+        self.dirty = 2
+
+class AnimatedSprite(Sprite):
+    def __init__(self, anim_sheet, default_frame=0):
+        Sprite.__init__(self, anim_sheet.frames[default_frame])
+        
+        self.anim_sheet = anim_sheet
+        self.animations = {}
+        self.anim_cursor = AnimCursor()
+        
+        self.set_anim('default', [default_frame], ONCE)
+        self.use_anim('default')
+
+    def set_anim (self, name, frame_idx, speed=0.5, mode=LOOP):
+        if not name in self.animations:
+            frames = []
+            for idx in frame_idx:
+                frames.append((self.anim_sheet.frames[idx], speed))
+
+            animation = Anim(frames, mode)
+            self.animations[name] = animation
+
+            return animation
+
+    def use_anim(self, name):
+        if name in self.animations:
+            self.anim_cursor.use_anim(self.animations[name])
+            return self.animations[name]
+
+    def update_anim(self, dt):
+        self.anim_cursor.update(dt)
+        self.image = self.anim_cursor.current

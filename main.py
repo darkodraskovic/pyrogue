@@ -2,6 +2,7 @@ import os
 import rl
 from rl import libtcodpy as libtcod
 from rl import gui
+from rl import anim
 import pygame
 from settings import *
 import game
@@ -122,13 +123,16 @@ class Renderer:
 map  = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
 
 # generate player
-img = img_animes.subsurface((0*TILE_SIZE, 9*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-player = rl.map.place_object(map, 0, entity.Player, "player", True, img)
+creatures_anim_sheet = anim.AnimSheet(images['creatures'], 24, 24)
+
+player = rl.map.place_object(map, 0, entity.Player, "player", creatures_anim_sheet, 288,  True)
 player.compute_fov()
+a = player.set_anim('idle', [288, 289])
+a.flip(True, False)
+player.use_anim('idle')
 
 # generate other entities
-img = img_animes.subsurface((0*TILE_SIZE, 12*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-objs = rl.map.place_objects(map, 0, entity.Monster, 2, 4, "monster", True, img, player)
+objs = rl.map.place_objects(map, 0, entity.Monster, 2, 4, "monster", creatures_anim_sheet, 384, True, player)
 
 objs = [player] + objs
 object_group = pygame.sprite.LayeredDirty(*objs)
