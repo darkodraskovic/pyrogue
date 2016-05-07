@@ -2,7 +2,7 @@ import os
 import rl
 from rl import libtcodpy as libtcod
 from rl import gui
-from rl import anim
+from rl import sprite
 import pygame
 from settings import *
 import game
@@ -123,7 +123,7 @@ class Renderer:
 map  = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
 
 # generate player
-creatures_anim_sheet = anim.AnimSheet(images['creatures'], 24, 24)
+creatures_anim_sheet = sprite.AnimSheet(images['creatures'], 24, 24)
 
 player = rl.map.place_object(map, 0, entity.Player, "player", creatures_anim_sheet, 288,  True)
 player.compute_fov()

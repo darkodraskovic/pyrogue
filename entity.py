@@ -1,6 +1,6 @@
 from rl import libtcodpy as libtcod
 from rl import entity
-from rl import anim
+from rl import sprite
 from settings import *
 import pygame
 import game
@@ -51,10 +51,10 @@ class MonsterAI(entity.Component):
             
 
 # ENTITIES
-class Entity(entity.Entity, anim.AnimatedSprite):
+class Entity(entity.Entity, sprite.AnimatedSprite):
     def __init__(self, x, y, name, anim_sheet, default_frame=0, blocks=False):
         entity.Entity.__init__(self, x, y, name, blocks)
-        anim.AnimatedSprite.__init__(self, anim_sheet, default_frame)
+        sprite.AnimatedSprite.__init__(self, anim_sheet, default_frame)
 
         self.add_component(entity.Translator, TILE_SIZE, 1000 / TURN_SPEED)
         self.is_updating = False
