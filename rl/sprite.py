@@ -54,9 +54,9 @@ class Anim:
         self.flip_x = False
         self.flip_y = False
 
-    def flip(self, boolx, booly):                
-        for idx, frame in enumerate(self.frames):
-            self.frames[idx] = pygame.transform.flip(frame[0], boolx, booly), frame[1]
+    # def flip(self, boolx, booly):                
+    #     for idx, frame in enumerate(self.frames):
+    #         self.frames[idx] = pygame.transform.flip(frame[0], boolx, booly), frame[1]
 
 class AnimCursor:
     def __init__(self):

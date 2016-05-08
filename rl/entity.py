@@ -75,7 +75,7 @@ class Translator(Component):
         dy = self.dest_y - self.y
         dist = math.sqrt(dx**2 + dy**2)
 
-        if dist > 1:
+        if dist > 2:
             speed = self.tile_size * self.tile_speed * dt
             velX = (dx / dist) * speed;
             velY = (dy / dist) * speed;

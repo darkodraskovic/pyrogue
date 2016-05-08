@@ -57,18 +57,30 @@ class Entity(entity.Entity, sprite.AnimatedSprite):
         sprite.AnimatedSprite.__init__(self, anim_sheet, default_frame)
 
         self.add_component(entity.Translator, TILE_SIZE, 1000 / TURN_SPEED)
-        self.is_updating = False
+        self.is_busy = False
 
         self.map = None
         self.dead = False
 
-    def update(self, dt):
-        if self.is_updating:
+    def update(self, dt, viewport_x, viewport_y):
+        # visuals
+        if libtcod.map_is_in_fov(self.map['fov_map'], self.x, self.y):
+            self.visible = 1
+            self.update_rect(viewport_x, viewport_y)
+            self.update_anim(dt)
+        else:
+            self.visible = 0
+        
+        if self.visible:
+            self.update_anim(dt);
+
+        # busy
+        if self.is_busy:
             transl = self.components['translator']
             if transl.has_dest:
                 transl.move(dt)
             else:
-                self.is_updating = False
+                self.is_busy = False
 
     def update_rect(self, offset_x=0, offset_y=0):
         transl = self.components['translator']
@@ -76,7 +88,7 @@ class Entity(entity.Entity, sprite.AnimatedSprite):
         self.rect.y = transl.y - offset_y
 
     def take_turn(self):
-        self.is_updating = True
+        self.is_busy = True
 
     def compute_fov(self):
         libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y,

@@ -44,7 +44,7 @@ def handle_keys(player):
             player.actions[event.action] = False
 
 wait = 0
-def update(player, object_group):
+def update(player, viewport_x, viewport_y, update_group, object_group):
     global turn_count
     global game_state
     global player_action
@@ -61,18 +61,17 @@ def update(player, object_group):
 
     dt = clock.tick()
     
-    for object in object_group:
-        object.update_anim(dt/1000)
-
     if game_state == GS_UPDATE:
         wait -= dt
-        object_group.update(dt/1000)
-        if not next((x for x in object_group if x.is_updating == True), None):
-            if True in player.actions.values():
-                if wait <=0:
-                    game_state = GS_IDLE
-                    for object in object_group:
-                        if object.dead: object.kill()
+
+    update_group.update(dt/1000, viewport_x, viewport_y)
+    
+    if not next((x for x in object_group if x.is_busy == True), None):
+        if True in player.actions.values():
+            if wait <=0:
+                game_state = GS_IDLE
+                for object in object_group:
+                    if object.dead: object.kill()
 
     if game_state == GS_EXIT:
         pygame.quit()

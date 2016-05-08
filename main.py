@@ -1,17 +1,16 @@
 import os
 import rl
+import math
 from rl import libtcodpy as libtcod
 from rl import gui
 from rl import sprite
 import pygame
 from settings import *
 import game
+import tilemap
 import entity
 
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
-
-tile_wall = pygame.Rect(6 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-tile_floor = pygame.Rect(0 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
 # actual size of the window in pixels
 size = width, height = SCREEN_WIDTH * TILE_SIZE * SCALE, SCREEN_HEIGHT * TILE_SIZE * SCALE
@@ -37,13 +36,6 @@ def load_images(manifest):
     return images
 
 images = load_images(manifest)
-# tiles
-tileset_lit = images['world']
-tileset_unlit = tileset_lit.copy()
-light_intensity  = 128
-tileset_unlit.fill((light_intensity, light_intensity, light_intensity), None, pygame.BLEND_MULT)
-# entities
-img_animes = images['creatures']
 
 # CAMERA & RENDERER
 
@@ -53,6 +45,8 @@ class Camera:
         self.y = 0
         self.followee = followee
         self.translator = self.followee.components['translator']
+        self.world_x = self.followee.rect.x
+        self.world_y = self.followee.rect.y
         self.scr_w = scr_w
         self.scr_h = scr_h
         self.world_w = world_w
@@ -68,50 +62,17 @@ class Camera:
         self.world_x = max(0, min(self.world_x, self.world_w - self.scr_w))
         self.world_y = max(0, min(self.world_y, self.world_h - self.scr_h))
 
-
 class Renderer:
     BLACK = (0,0,0)
     global screen_buffer
 
-    def __init__(self, camera):
-        self.camera = camera
-
-    def render_tiles(self, map):
-        cam = self.camera
-        data = map['data']
-        fov_map = map['fov_map']
-        for x in range(max(0, cam.x-1), min(cam.x + SCREEN_WIDTH + 1, MAP_WIDTH)):
-            for y in range(max(0, cam.y-1), min(cam.y + SCREEN_HEIGHT + 1, MAP_HEIGHT)):
-                if libtcod.map_is_in_fov(fov_map, x, y):
-                    img = tileset_lit
-                    data[x][y].explored = True
-                elif data[x][y].explored:
-                    img  = tileset_unlit
-                else: continue
-                if data[x][y].block_sight:
-                    rect = tile_wall
-                else:
-                    rect = tile_floor
-                screen_buffer.blit(img, (x * TILE_SIZE - cam.world_x, y * TILE_SIZE - cam.world_y), rect)
-
-    def render_objects(self, map):
-        cam = self.camera
-        fov_map = map['fov_map']        
-        for object in object_group:
-            if libtcod.map_is_in_fov(fov_map, object.x, object.y):
-                object.visible = 1
-                object.update_rect(cam.world_x, cam.world_y)
-            else:
-                object.visible = 0
-            object_group.draw(screen_buffer)
-            
-    def render(self, map):
+    def render(self):
         screen_buffer.fill(self.BLACK)
-        self.render_tiles(map)
-        self.render_objects(map)
-        rect = screen.get_rect()
+        update_group.draw(screen_buffer)
         text.set_text('HP: ' + str(player.components['fighter'].hp) + '/' +\
                       str(player.components['fighter'].max_hp))
+        
+        rect = screen.get_rect()
         scr = pygame.transform.scale(screen_buffer, (rect.width, rect.height))
         screen.blit(scr, screen.get_rect())
         gui_group.draw(screen)
@@ -121,21 +82,34 @@ class Renderer:
 
 # generate map
 map  = rl.map.make_map(MAP_WIDTH, MAP_HEIGHT, MAX_ROOMS, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+tilemap = tilemap.Tilemap(map, TILE_SIZE, images['world'], 127)
+
+tile_wall = pygame.Rect(6 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+tile_floor = pygame.Rect(0 * TILE_SIZE, 0 * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+
+data = map['data']
+for row in data:
+    for tile in row:
+        if tile.block_sight:
+            tile.rect = tile_wall
+        else:
+            tile.rect = tile_floor
 
 # generate player
 creatures_anim_sheet = sprite.AnimSheet(images['creatures'], 24, 24)
 
 player = rl.map.place_object(map, 0, entity.Player, "player", creatures_anim_sheet, 288,  True)
 player.compute_fov()
-a = player.set_anim('idle', [288, 289])
-a.flip(True, False)
+player.set_anim('idle', [288, 289])
 player.use_anim('idle')
 
 # generate other entities
 objs = rl.map.place_objects(map, 0, entity.Monster, 2, 4, "monster", creatures_anim_sheet, 384, True, player)
 
 objs = [player] + objs
-object_group = pygame.sprite.LayeredDirty(*objs)
+object_group = pygame.sprite.Group(*objs)
+objs2 = [tilemap, player] + objs
+update_group = pygame.sprite.LayeredDirty(*objs2)
 
 # Gui
 
@@ -153,11 +127,11 @@ gui_group = pygame.sprite.LayeredDirty(panel, text)
 # Camera & renderer
 camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
                 MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE)
-renderer = Renderer(camera)
+renderer = Renderer()
 
 while 1:
-    game.update(player, object_group)
+    game.update(player, camera.world_x, camera.world_y, update_group, object_group)
     
     # render the screen
     camera.update()
-    renderer.render(map)
+    renderer.render()
