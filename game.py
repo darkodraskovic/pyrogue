@@ -7,7 +7,7 @@ clock = pygame.time.Clock()
 
 GS_EXIT = 0
 GS_IDLE = 1
-GS_UPDATE = 2
+GS_BUSY = 2
 PA_IDLE = 0
 PA_TURN = 1
 
@@ -44,7 +44,7 @@ def handle_keys(player):
             player.actions[event.action] = False
 
 wait = 0
-def update(player, viewport_x, viewport_y, update_group, object_group):
+def update(player, viewport_x, viewport_y, update_group, entity_group):
     global turn_count
     global game_state
     global player_action
@@ -53,24 +53,21 @@ def update(player, viewport_x, viewport_y, update_group, object_group):
     handle_keys(player)
 
     if game_state == GS_IDLE and True in player.actions.values():
-        game_state = GS_UPDATE 
+        game_state = GS_BUSY 
         wait = TURN_SPEED
         turn_count += 1
-        for object in object_group:
+        for object in entity_group:
             object.take_turn()
 
     dt = clock.tick()
-    
-    if game_state == GS_UPDATE:
-        wait -= dt
-
+    wait -= dt
     update_group.update(dt/1000, viewport_x, viewport_y)
     
-    if not next((x for x in object_group if x.is_busy == True), None):
+    if not next((x for x in entity_group if x.is_busy == True), None):
         if True in player.actions.values():
             if wait <=0:
                 game_state = GS_IDLE
-                for object in object_group:
+                for object in entity_group:
                     if object.dead: object.kill()
 
     if game_state == GS_EXIT:

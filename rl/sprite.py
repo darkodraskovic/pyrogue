@@ -23,6 +23,7 @@
 # AnimCursor.playing tells if the animation is currently playing or is stopped.
 
 # AnimCursor.playtime keeps track of how long the animation has been playing.
+import math
 import pygame
 
 LOOP = 0
@@ -127,16 +128,25 @@ class AnimCursor:
 
 # SPRITE
 class Sprite(pygame.sprite.DirtySprite):
-    def __init__(self, image):
+    def __init__(self, x, y, image):
         pygame.sprite.DirtySprite.__init__(self)
         self.image = image
         self.rect = self.image.get_rect()
         self.visible = 1
         self.dirty = 2
+        self.x = x
+        self.y = y
+        self.dest_x = None
+        self.dest_y = None
+        self.has_dest = False
+
+    def update_rect(self, offset_x, offset_y):
+        self.rect.x = self.x - offset_x
+        self.rect.y = self.y - offset_y
 
 class AnimatedSprite(Sprite):
-    def __init__(self, anim_sheet, default_frame=0):
-        Sprite.__init__(self, anim_sheet.frames[default_frame])
+    def __init__(self, x, y, anim_sheet, default_frame=0):
+        Sprite.__init__(self, x, y, anim_sheet.frames[default_frame])
         
         self.anim_sheet = anim_sheet
         self.animations = {}

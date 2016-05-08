@@ -42,10 +42,10 @@ class MonsterAI(entity.Component):
         target = self.target
         if not target: return
         monster = self.owner
-        if libtcod.map_is_in_fov(monster.map['fov_map'], monster.x, monster.y):
-            if monster.distance_to(target.x, target.y) >= 2:
-                monster.move_towards(target.x, target.y)
-                self.owner.components['translator'].set_destination(self.owner.x, self.owner.y)
+        if libtcod.map_is_in_fov(monster.map['fov_map'], monster.map_x, monster.map_y):
+            if monster.distance_to(target.map_x, target.map_y) >= 2:
+                monster.move_towards(target.map_x, target.map_y)
+                self.owner.components['translator'].set_destination(self.owner.map_x, self.owner.map_y)
             else:
                 self.owner.components['fighter'].attack(target)
             
@@ -54,7 +54,7 @@ class MonsterAI(entity.Component):
 class Entity(entity.Entity, sprite.AnimatedSprite):
     def __init__(self, x, y, name, anim_sheet, default_frame=0, blocks=False):
         entity.Entity.__init__(self, x, y, name, blocks)
-        sprite.AnimatedSprite.__init__(self, anim_sheet, default_frame)
+        sprite.AnimatedSprite.__init__(self, x * TILE_SIZE, y * TILE_SIZE, anim_sheet, default_frame)
 
         self.add_component(entity.Translator, TILE_SIZE, 1000 / TURN_SPEED)
         self.is_busy = False
@@ -64,15 +64,12 @@ class Entity(entity.Entity, sprite.AnimatedSprite):
 
     def update(self, dt, viewport_x, viewport_y):
         # visuals
-        if libtcod.map_is_in_fov(self.map['fov_map'], self.x, self.y):
+        if libtcod.map_is_in_fov(self.map['fov_map'], self.map_x, self.map_y):
             self.visible = 1
             self.update_rect(viewport_x, viewport_y)
             self.update_anim(dt)
         else:
             self.visible = 0
-        
-        if self.visible:
-            self.update_anim(dt);
 
         # busy
         if self.is_busy:
@@ -82,16 +79,11 @@ class Entity(entity.Entity, sprite.AnimatedSprite):
             else:
                 self.is_busy = False
 
-    def update_rect(self, offset_x=0, offset_y=0):
-        transl = self.components['translator']
-        self.rect.x = transl.x - offset_x
-        self.rect.y = transl.y - offset_y
-
     def take_turn(self):
         self.is_busy = True
 
     def compute_fov(self):
-        libtcod.map_compute_fov(self.map['fov_map'], self.x, self.y,
+        libtcod.map_compute_fov(self.map['fov_map'], self.map_x, self.map_y,
                                 LIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
 
     def kill(self):
@@ -117,7 +109,7 @@ class Player(Entity):
         if dx or dy:
             target = None
             for object in self.map['objects']:
-                if object != self and object.x == self.x+dx and object.y == self.y+dy:
+                if object != self and object.map_x == self.map_x+dx and object.map_y == self.map_y+dy:
                     target = object
                     break
             if target:
@@ -126,7 +118,7 @@ class Player(Entity):
             else:
                 self.move(dx, dy)
                 self.compute_fov()
-                self.components['translator'].set_destination(self.x, self.y)
+                self.components['translator'].set_destination(self.map_x, self.map_y)
 
 class Monster(Entity):
     def __init__(self, x, y, name, anim_sheet, default_frame=0, blocks=False, target=None):

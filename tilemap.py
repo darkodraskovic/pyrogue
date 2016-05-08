@@ -4,7 +4,7 @@ from rl import sprite
 from settings import *
 
 class Tilemap(sprite.Sprite):
-    def __init__(self, map, tile_size, tileset, light_intensity=127):
+    def __init__(self, map, tile_size, tileset, light_intensity=127, x=0, y=0):
         self.map = map
         self.tile_size = tile_size
         self.map_w = len(map['data'])
@@ -14,7 +14,7 @@ class Tilemap(sprite.Sprite):
         self.tileset_dark.fill((light_intensity, light_intensity, light_intensity), None, pygame.BLEND_MULT)
 
         image = pygame.Surface((self.map_w * tile_size, self.map_h * tile_size)).convert_alpha()
-        sprite.Sprite.__init__(self, image)
+        sprite.Sprite.__init__(self, x, y, image)
 
     def update(self, dt, viewport_x, viewport_y):
         data = self.map['data']

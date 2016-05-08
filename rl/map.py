@@ -124,7 +124,7 @@ def is_blocked(map, x, y):
         return True
 
     for object in map['objects']:
-        if object.blocks and object.x == x and object.y == y:
+        if object.blocks and object.map_x == x and object.map_y == y:
             return True
 
     return False

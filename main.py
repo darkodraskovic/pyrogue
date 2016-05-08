@@ -1,22 +1,19 @@
-import os
 import rl
-import math
 from rl import libtcodpy as libtcod
 from rl import gui
 from rl import sprite
+from rl import camera
+from rl import renderer
 import pygame
 from settings import *
 import game
 import tilemap
 import entity
 
-os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
+# Camera & renderer
+renderer = renderer.Renderer(SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE, SCALE)
 
-# actual size of the window in pixels
-size = width, height = SCREEN_WIDTH * TILE_SIZE * SCALE, SCREEN_HEIGHT * TILE_SIZE * SCALE
 pygame.init()
-screen = pygame.display.set_mode(size)
-screen_buffer = pygame.Surface((width/SCALE, height/SCALE))
 
 prefix = 'assets/images/'
 manifest = {
@@ -28,6 +25,7 @@ manifest = {
     'world': 'world.png',
     'world_decals': 'world_decals.png'
 }
+
 # graphics
 def load_images(manifest):
     images = {}
@@ -36,47 +34,6 @@ def load_images(manifest):
     return images
 
 images = load_images(manifest)
-
-# CAMERA & RENDERER
-
-class Camera:
-    def __init__(self, followee, scr_w, scr_h, world_w, world_h):
-        self.x = 0
-        self.y = 0
-        self.followee = followee
-        self.translator = self.followee.components['translator']
-        self.world_x = self.followee.rect.x
-        self.world_y = self.followee.rect.y
-        self.scr_w = scr_w
-        self.scr_h = scr_h
-        self.world_w = world_w
-        self.world_h = world_h
-
-    def update(self):
-        self.x = self.followee.x - SCREEN_WIDTH/2
-        self.y = self.followee.y - SCREEN_HEIGHT/2
-        self.x = max(0, min(self.x, MAP_WIDTH - SCREEN_WIDTH))
-        self.y = max(0, min(self.y, MAP_HEIGHT - SCREEN_HEIGHT))
-        self.world_x = self.translator.x - self.scr_w/2
-        self.world_y = self.translator.y - self.scr_h/2
-        self.world_x = max(0, min(self.world_x, self.world_w - self.scr_w))
-        self.world_y = max(0, min(self.world_y, self.world_h - self.scr_h))
-
-class Renderer:
-    BLACK = (0,0,0)
-    global screen_buffer
-
-    def render(self):
-        screen_buffer.fill(self.BLACK)
-        update_group.draw(screen_buffer)
-        text.set_text('HP: ' + str(player.components['fighter'].hp) + '/' +\
-                      str(player.components['fighter'].max_hp))
-        
-        rect = screen.get_rect()
-        scr = pygame.transform.scale(screen_buffer, (rect.width, rect.height))
-        screen.blit(scr, screen.get_rect())
-        gui_group.draw(screen)
-        pygame.display.flip()
 
 # INITIALIZATION & MAIN LOOP
 
@@ -124,14 +81,13 @@ panel = gui.Panel(0, 0, rect=p_rect, fill=p_col_fill, stroke=p_col_stroke, strok
 text = gui.Text(0, 0, parent=panel, padding=4, text="Text", color=(162, 162, 162), size=32)
 gui_group = pygame.sprite.LayeredDirty(panel, text)
 
-# Camera & renderer
-camera = Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
+camera = camera.Camera(player, SCREEN_WIDTH * TILE_SIZE, SCREEN_HEIGHT * TILE_SIZE,
                 MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * TILE_SIZE)
-renderer = Renderer()
 
 while 1:
-    game.update(player, camera.world_x, camera.world_y, update_group, object_group)
-    
+    game.update(player, camera.x, camera.y, update_group, object_group)
+    text.set_text('HP: ' + str(player.components['fighter'].hp) + '/' +\
+                  str(player.components['fighter'].max_hp))    
     # render the screen
     camera.update()
-    renderer.render()
+    renderer.update(update_group, gui_group)

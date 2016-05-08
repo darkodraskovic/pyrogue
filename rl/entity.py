@@ -13,8 +13,8 @@ class Component:
 class Entity:
     # this is a generic object: the player, a monster, an item, the stairs...
     def __init__(self, x, y, name, blocks=False):
-        self.x = x
-        self.y = y
+        self.map_x = x
+        self.map_y = y
         self.name = name
         self.blocks = blocks
         self.components = {}
@@ -35,13 +35,13 @@ class Entity:
         pass
     
     def distance_to(self, target_x, target_y):
-        dx = target_x - self.x
-        dy = target_y - self.y
+        dx = target_x - self.map_x
+        dy = target_y - self.map_y
         return math.sqrt(dx**2 + dy**2)
 
     def move_towards(self, target_x, target_y):
-        dx = target_x - self.x
-        dy = target_y - self.y
+        dx = target_x - self.map_x
+        dy = target_y - self.map_y
         distance = math.sqrt(dx**2 + dy**2)
         #normalize it to length 1 (preserving direction), then round it and
         #convert to integer so the movement is restricted to the map grid
@@ -51,10 +51,10 @@ class Entity:
     
     def move(self, dx, dy):
         # move by the given amount, if the destination is not blocked
-        # if not map[self.x + dx][self.y + dy].blocked:
-        if not rl.map.is_blocked(self.map, self.x+dx, self.y+dy):
-            self.x += dx
-            self.y += dy
+        # if not map[self.map_x + dx][self.map_y + dy].blocked:
+        if not rl.map.is_blocked(self.map, self.map_x+dx, self.map_y+dy):
+            self.map_x += dx
+            self.map_y += dy
             return True
 
 # DERIVED COMPONENTS
@@ -64,26 +64,24 @@ class Translator(Component):
         Component.__init__(self, owner, "translator")
         self.tile_size = tile_size
         self.tile_speed = tile_speed
-        self.x = owner.x * tile_size
-        self.y = owner.y * tile_size
         self.dest_x = None
         self.dest_y = None
         self.has_dest = False
 
     def move(self, dt):
-        dx = self.dest_x - self.x
-        dy = self.dest_y - self.y
+        dx = self.dest_x - self.owner.x
+        dy = self.dest_y - self.owner.y
         dist = math.sqrt(dx**2 + dy**2)
 
         if dist > 2:
             speed = self.tile_size * self.tile_speed * dt
             velX = (dx / dist) * speed;
             velY = (dy / dist) * speed;
-            self.x += velX;
-            self.y += velY;
+            self.owner.x += velX;
+            self.owner.y += velY;
         else:
-            self.x = self.dest_x
-            self.y = self.dest_y
+            self.owner.x = self.dest_x
+            self.owner.y = self.dest_y
             self.dest_x = None
             self.dest_y = None
             self.has_dest = False
