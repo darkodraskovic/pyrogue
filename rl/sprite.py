@@ -23,7 +23,6 @@
 # AnimCursor.playing tells if the animation is currently playing or is stopped.
 
 # AnimCursor.playtime keeps track of how long the animation has been playing.
-import math
 import pygame
 
 LOOP = 0
@@ -31,7 +30,8 @@ ONCE = 1
 
 # ANIM
 
-class AnimSheet():
+
+class AnimSheet:
     def __init__(self, image, frame_w, frame_h):
         self.image = image
         self.frame_w = frame_w
@@ -42,11 +42,12 @@ class AnimSheet():
     def parse_image(image, frame_w, frame_h):
         frames = []
         rect = pygame.Rect(0, 0, frame_w, frame_h)
-        for y in range(image.get_height() / frame_h):
-            for x in range(image.get_width() / frame_w):
+        for y in range(image.get_height() // frame_h):
+            for x in range(image.get_width() // frame_w):
                 rect.topleft = (x * frame_w, y * frame_h)
                 frames.append(image.subsurface(rect))
         return frames
+
 
 class Anim:
     def __init__(self, frames, mode=LOOP):
@@ -55,9 +56,10 @@ class Anim:
         self.flip_x = False
         self.flip_y = False
 
-    # def flip(self, boolx, booly):                
+    # def flip(self, boolx, booly):
     #     for idx, frame in enumerate(self.frames):
     #         self.frames[idx] = pygame.transform.flip(frame[0], boolx, booly), frame[1]
+
 
 class AnimCursor:
     def __init__(self):
@@ -114,17 +116,18 @@ class AnimCursor:
                     return
 
                 self.next_frame = (self.frame_num + 1) % len(self.anim.frames)
-                
-                frame,time = self.anim.frames[self.frame_num]
+
+                frame, time = self.anim.frames[self.frame_num]
                 self.frame_time = time
                 self.timeleft += time
                 self.current = frame
                 self.next = self.anim.frames[self.next_frame][0]
                 self.played.append(frame)
                 # self.transition = self.timeleft / time
-                
+
                 if self.frame_num == 0:
                     self.playtime = self.timeleft
+
 
 # SPRITE
 class Sprite(pygame.sprite.DirtySprite):
@@ -144,18 +147,19 @@ class Sprite(pygame.sprite.DirtySprite):
         self.rect.x = self.x - offset_x
         self.rect.y = self.y - offset_y
 
+
 class AnimatedSprite(Sprite):
     def __init__(self, x, y, anim_sheet, default_frame=0):
         Sprite.__init__(self, x, y, anim_sheet.frames[default_frame])
-        
+
         self.anim_sheet = anim_sheet
         self.animations = {}
         self.anim_cursor = AnimCursor()
-        
-        self.set_anim('default', [default_frame], ONCE)
-        self.use_anim('default')
 
-    def set_anim (self, name, frame_idx, speed=0.5, mode=LOOP):
+        self.set_anim("default", [default_frame], ONCE)
+        self.use_anim("default")
+
+    def set_anim(self, name, frame_idx, speed=0.5, mode=LOOP):
         if not name in self.animations:
             frames = []
             for idx in frame_idx:
