@@ -1,4 +1,4 @@
-from rl import libtcodpy as libtcod
+import tcod as libtcod
 from rl import entity
 from rl import sprite
 from settings import Settings

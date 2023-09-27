@@ -21,6 +21,7 @@ renderer = renderer.Renderer(
 )
 
 pygame.init()
+pygame.font.init()
 
 prefix = "assets/images/"
 manifest = {
