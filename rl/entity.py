@@ -4,11 +4,13 @@ import rl
 
 # BASE CLASSES
 
+
 class Component:
     def __init__(self, owner, name):
         self.owner = owner
         self.name = name
         owner.components[name] = self
+
 
 class Entity:
     # this is a generic object: the player, a monster, an item, the stairs...
@@ -30,10 +32,10 @@ class Entity:
 
     def take_turn():
         pass
-    
+
     def update():
         pass
-    
+
     def distance_to(self, target_x, target_y):
         dx = target_x - self.map_x
         dy = target_y - self.map_y
@@ -43,21 +45,23 @@ class Entity:
         dx = target_x - self.map_x
         dy = target_y - self.map_y
         distance = math.sqrt(dx**2 + dy**2)
-        #normalize it to length 1 (preserving direction), then round it and
-        #convert to integer so the movement is restricted to the map grid
+        # normalize it to length 1 (preserving direction), then round it and
+        # convert to integer so the movement is restricted to the map grid
         dx = int(round(dx / distance))
         dy = int(round(dy / distance))
         self.move(dx, dy)
-    
+
     def move(self, dx, dy):
         # move by the given amount, if the destination is not blocked
         # if not map[self.map_x + dx][self.map_y + dy].blocked:
-        if not rl.map.is_blocked(self.map, self.map_x+dx, self.map_y+dy):
+        if not rl.map.is_blocked(self.map, self.map_x + dx, self.map_y + dy):
             self.map_x += dx
             self.map_y += dy
             return True
 
+
 # DERIVED COMPONENTS
+
 
 class Translator(Component):
     def __init__(self, owner, tile_size, tile_speed):
@@ -75,10 +79,10 @@ class Translator(Component):
 
         if dist > 2:
             speed = self.tile_size * self.tile_speed * dt
-            velX = (dx / dist) * speed;
-            velY = (dy / dist) * speed;
-            self.owner.x += velX;
-            self.owner.y += velY;
+            velX = (dx / dist) * speed
+            velY = (dy / dist) * speed
+            self.owner.x += velX
+            self.owner.y += velY
         else:
             self.owner.x = self.dest_x
             self.owner.y = self.dest_y
